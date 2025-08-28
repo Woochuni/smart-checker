@@ -1,0 +1,3451 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Import Checker Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        .card {
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            transition: all 0.2s ease-in-out;
+        }
+        .card:hover {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .scanner-overlay {
+            position: relative;
+            overflow: hidden;
+        }
+        .scanner-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #10b981, transparent);
+            animation: scan 2s linear infinite;
+        }
+        @keyframes scan {
+            0% { top: 0; }
+            100% { top: 100%; }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-shipping-fast text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-900">Smart Import Checker</h1>
+                        <p class="text-xs text-gray-500">Pro Version</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-right">
+                        <p class="text-sm font-medium text-gray-900" id="currentRoundDisplay">ยังไม่เลือกรอบ</p>
+                        <p class="text-xs text-gray-500" id="roundStats">0 พัสดุ</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="relative">
+                            <input type="text" id="sheetSelector" placeholder="พิมพ์ชื่อชีทที่ต้องการโหลด..." 
+                                   class="px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-sm w-64">
+                            <button id="loadSheetHeaderBtn" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-blue-500 hover:text-blue-700 transition-colors" title="โหลดชีท">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                        <button id="refreshSheetsBtn" class="text-gray-600 hover:text-blue-500 transition-colors" title="รีเฟรชรายการชีท">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                    <button id="roundsBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-layer-group mr-1"></i>จัดการรอบ
+                    </button>
+                    <button id="summaryBtn" class="text-gray-600 hover:text-blue-500 transition-colors" title="รายงานสรุป">
+                        <i class="fas fa-chart-bar text-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        
+        <!-- Sheet Status Alert -->
+        <div id="sheetAlert" class="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4 fade-in">
+            <div class="flex items-center">
+                <i class="fas fa-table text-blue-500 mr-3"></i>
+                <div class="flex-1">
+                    <h3 class="text-sm font-medium text-blue-800">เชื่อมต่อกับ Google Sheets</h3>
+                    <p class="text-sm text-blue-700 mt-1" id="sheetStatusText">กรุณาเลือกชีทข้อมูลสินค้าจากรายการด้านบน</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span id="sheetStatusBadge" class="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">ยังไม่เชื่อมต่อ</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Round Selection Alert -->
+        <div id="roundAlert" class="mb-6 bg-yellow-50 border border-yellow-200 rounded-xl p-4 fade-in">
+            <div class="flex items-center">
+                <i class="fas fa-exclamation-triangle text-yellow-500 mr-3"></i>
+                <div class="flex-1">
+                    <h3 class="text-sm font-medium text-yellow-800">กรุณาเลือกรอบสินค้าก่อนเริ่มใช้งาน</h3>
+                    <p class="text-sm text-yellow-700 mt-1">คลิกปุ่ม "จัดการรอบ" เพื่อสร้างรอบใหม่หรือเลือกรอบที่มีอยู่</p>
+                </div>
+                <button id="createFirstRoundBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                    สร้างรอบแรก
+                </button>
+            </div>
+        </div>
+
+        <!-- Package Entry Section -->
+        <div id="packageSection" class="hidden space-y-6">
+            <!-- Package Info Card -->
+            <div class="bg-white rounded-xl p-6 card">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">เพิ่มพัสดุใหม่</h2>
+                
+                <!-- Package Number and Import Cost Row -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <!-- Package Number -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">เลขพัสดุ/แทรกกิ้ง</label>
+                        <input type="text" id="packageNumber" placeholder="กรอกเลขพัสดุ..." 
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                    </div>
+
+                    <!-- Import Cost -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">ค่านำเข้า</label>
+                        <input type="number" id="shippingCost" placeholder="กรอกค่านำเข้า (บาท)" 
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                    </div>
+                </div>
+
+
+            </div>
+
+            <!-- Products Card -->
+            <div class="bg-white rounded-xl p-6 card">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">รายการสินค้าในพัสดุ</h3>
+                    <button id="addProductBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-plus mr-2"></i>เพิ่มสินค้า
+                    </button>
+                </div>
+                <div id="productList" class="space-y-4">
+                    <div id="noProductsMessage" class="text-center py-8 text-gray-500">
+                        <i class="fas fa-plus-circle text-4xl mb-3 text-gray-300"></i>
+                        <p class="text-lg font-medium mb-2">ยังไม่มีสินค้าในพัสดุ</p>
+                        <p class="text-sm">คลิกปุ่ม "เพิ่มสินค้า" เพื่อเริ่มเพิ่มรายการสินค้า</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cost Distribution Card -->
+            <div class="bg-white rounded-xl p-6 card">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">การแบ่งค่านำเข้า</h3>
+                <div class="flex items-center justify-between mb-4">
+                    <select id="costDistributionMethod" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                        <option value="proportion">แบ่งตามสัดส่วนจำนวน</option>
+                        <option value="equal">แบ่งเท่าๆ กัน</option>
+                        <option value="custom">กำหนดเอง</option>
+                    </select>
+                    <div class="text-right">
+                        <p class="text-sm text-gray-600">ยอดรวม: <span id="totalDistributed" class="font-medium text-blue-600">0</span> บาท</p>
+                        <p class="text-sm text-gray-600">คงเหลือ: <span id="remainingCost" class="font-medium">0</span> บาท</p>
+                    </div>
+                </div>
+                <div id="shippingDistribution" class="space-y-3">
+                    <!-- Distribution will be shown here -->
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex justify-end space-x-4">
+                <button id="testSaveBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-3 rounded-lg transition-colors text-sm">
+                    <i class="fas fa-bug mr-2"></i>ทดสอบ
+                </button>
+                <button id="clearFormBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg transition-colors">
+                    <i class="fas fa-eraser mr-2"></i>ล้างฟอร์ม
+                </button>
+                <button id="savePackageBtn" class="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-lg font-medium transition-colors">
+                    <i class="fas fa-save mr-2"></i>บันทึกพัสดุ
+                </button>
+            </div>
+        </div>
+
+        <!-- Rounds Management Modal -->
+        <div id="roundsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-2xl p-6 max-w-2xl w-full max-h-96 overflow-y-auto">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold text-gray-900">จัดการรอบสินค้า</h2>
+                    <button id="closeRoundsModal" class="text-gray-500 hover:text-gray-700 transition-colors">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+
+                <!-- Create New Round -->
+                <div class="mb-6 p-4 bg-blue-50 rounded-xl">
+                    <h3 class="font-medium text-gray-900 mb-3">สร้างรอบใหม่</h3>
+                    <div class="flex space-x-3">
+                        <input type="text" id="newRoundName" placeholder="ชื่อรอบสินค้า เช่น มกราคม 2024" 
+                               class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                        <button id="createRoundBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-plus mr-1"></i>สร้าง
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Existing Rounds -->
+                <div>
+                    <h3 class="font-medium text-gray-900 mb-3">รอบที่มีอยู่</h3>
+                    <div id="roundsList" class="space-y-2">
+                        <!-- Rounds will be listed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Section -->
+        <div id="summarySection" class="hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <h2 class="text-2xl font-bold text-gray-900">รายงานสรุป</h2>
+                <div class="flex items-center space-x-4">
+                    <div class="relative">
+                        <input type="text" id="summarySheetInput" placeholder="พิมพ์ชื่อชีทที่ต้องการโหลด..." 
+                               class="px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors w-64">
+                        <button id="loadSheetBtn" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-blue-500 hover:text-blue-700 transition-colors">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                    <select id="summaryRoundSelect" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                        <option value="">เลือกรอบสินค้า</option>
+                    </select>
+                    <button id="backToMainBtn" class="text-gray-600 hover:text-blue-500 transition-colors">
+                        <i class="fas fa-arrow-left mr-1"></i>กลับ
+                    </button>
+                </div>
+            </div>
+
+
+
+            <!-- Summary Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="bg-white rounded-xl p-6 card">
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-box text-blue-600"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm text-gray-600">พัสดุทั้งหมด</p>
+                            <p class="text-2xl font-bold text-gray-900" id="totalPackages">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-6 card">
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-check text-green-600"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm text-gray-600">สินค้าครบ</p>
+                            <p class="text-2xl font-bold text-gray-900" id="completeItems">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-6 card">
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-exclamation text-yellow-600"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm text-gray-600">สินค้าขาด</p>
+                            <p class="text-2xl font-bold text-gray-900" id="missingItems">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-6 card">
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-dollar-sign text-purple-600"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm text-gray-600">ค่านำเข้ารวม</p>
+                            <p class="text-2xl font-bold text-gray-900" id="totalCost">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Missing Products Analysis -->
+            <div class="bg-white rounded-xl p-6 card mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">การวิเคราะห์สินค้าที่ขาด</h3>
+                    <div class="flex items-center space-x-4">
+                        <button id="analyzeMissingBtn" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-calculator mr-1"></i>ประมวลผลสินค้าที่ขาด
+                        </button>
+                        <button id="copyMissingBtn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors hidden">
+                            <i class="fas fa-copy mr-1"></i>คัดลอกรายการที่ขาด
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Missing Products Alert -->
+                <div id="missingProductsAlert" class="hidden mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div class="flex items-start">
+                        <i class="fas fa-exclamation-triangle text-red-500 mr-3 mt-1"></i>
+                        <div class="flex-1">
+                            <h4 class="font-medium text-red-800 mb-2">พบสินค้าที่ยังขาด</h4>
+                            <p class="text-sm text-red-700 mb-3" id="missingProductsSummary"></p>
+                            <div class="flex items-center space-x-3">
+                                <button id="showMissingDetailsBtn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                    <i class="fas fa-list mr-1"></i>ดูรายละเอียด
+                                </button>
+                                <button id="copyMissingListBtn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition-colors">
+                                    <i class="fas fa-copy mr-1"></i>คัดลอกรายการ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Missing Products Cards -->
+                <div id="missingProductsTable" class="hidden">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="font-medium text-gray-900">รายการสินค้าแยกตามรสชาติ</h4>
+                        <div class="flex items-center space-x-3">
+                            <select id="missingProductsFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-sm">
+                                <option value="all">ทั้งหมด</option>
+                                <option value="missing">เฉพาะที่ขาด</option>
+                                <option value="complete">เฉพาะที่ครบ</option>
+                                <option value="partial">ได้บางส่วน</option>
+                            </select>
+                            <span id="missingProductsCount" class="text-sm text-gray-600">0 รายการ</span>
+                        </div>
+                    </div>
+                    <div id="missingProductsCards" class="space-y-4">
+                        <!-- Missing products cards will be populated here -->
+                    </div>
+                </div>
+
+                <!-- No Missing Products Message -->
+                <div id="noMissingProductsMessage" class="hidden text-center py-8 text-green-600">
+                    <i class="fas fa-check-circle text-4xl mb-3"></i>
+                    <p class="text-lg font-medium mb-2">ยินดีด้วย! ไม่มีสินค้าที่ขาด</p>
+                    <p class="text-sm">สินค้าทั้งหมดในฐานข้อมูลได้รับครบถ้วนแล้ว</p>
+                </div>
+
+                <!-- Analysis Instructions -->
+                <div id="analysisInstructions" class="text-center py-8 text-gray-500">
+                    <i class="fas fa-calculator text-4xl mb-3 text-gray-300"></i>
+                    <p class="text-lg font-medium mb-2">วิเคราะห์สินค้าที่ขาด</p>
+                    <p class="text-sm mb-4">คลิกปุ่ม "ประมวลผลสินค้าที่ขาด" เพื่อเปรียบเทียบข้อมูลในฐานข้อมูลกับสินค้าที่ได้รับ</p>
+                    <p class="text-xs text-gray-400">ระบบจะนำจำนวนในฐานข้อมูลมาหักลบกับจำนวนที่ได้รับในตาราง</p>
+                </div>
+            </div>
+
+            <!-- Summary Table -->
+            <div class="bg-white rounded-xl p-6 card">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">รายละเอียดสินค้า</h3>
+                    <div class="flex items-center space-x-4">
+                        <select id="statusFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                            <option value="all">ทั้งหมด</option>
+                            <option value="complete">ครบ</option>
+                            <option value="missing">ขาด</option>
+                            <option value="excess">เกิน</option>
+                        </select>
+                        <button id="exportBtn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-download mr-1"></i>ส่งออก
+                        </button>
+                        <button id="copySummaryBtn" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-copy mr-1"></i>คัดลอกสรุป
+                        </button>
+                        <button id="saveToSheetsBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-cloud-upload mr-1"></i>บันทึกไป Sheets
+                        </button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b-2 border-gray-300 bg-gray-50">
+                                <th colspan="3" class="text-left py-4 px-4 font-bold text-gray-800 text-lg border-r border-gray-300">ข้อมูลสินค้า</th>
+                                <th colspan="1" class="text-center py-4 px-4 font-bold text-gray-800 text-lg border-r border-gray-300">พัสดุ</th>
+                                <th colspan="3" class="text-center py-4 px-4 font-bold text-gray-800 text-lg border-r border-gray-300">จำนวน</th>
+                                <th colspan="1" class="text-center py-4 px-4 font-bold text-gray-800 text-lg border-r border-gray-300">ค่าใช้จ่าย</th>
+                                <th colspan="2" class="text-center py-4 px-4 font-bold text-gray-800 text-lg">การจัดการ</th>
+                            </tr>
+                            <tr class="border-b border-gray-200 bg-gray-25">
+                                <th class="text-left py-3 px-4 font-medium text-gray-700 border-r border-gray-200">รหัสสินค้า</th>
+                                <th class="text-left py-3 px-4 font-medium text-gray-700 border-r border-gray-200">ชื่อสินค้า</th>
+                                <th class="text-left py-3 px-4 font-medium text-gray-700 border-r border-gray-200">ตัวเลือก</th>
+                                <th class="text-left py-3 px-4 font-medium text-gray-700 border-r border-gray-200">เลขพัสดุ</th>
+                                <th class="text-center py-3 px-4 font-medium text-gray-700 border-r border-gray-200">สั่ง<br><span class="text-xs text-gray-500">(ฐานข้อมูล)</span></th>
+                                <th class="text-center py-3 px-4 font-medium text-gray-700 border-r border-gray-200">ได้</th>
+                                <th class="text-center py-3 px-4 font-medium text-gray-700 border-r border-gray-200">ต่าง</th>
+                                <th class="text-center py-3 px-4 font-medium text-gray-700 border-r border-gray-200">ค่านำเข้า<br><span class="text-xs text-gray-500">(บาท)</span></th>
+                                <th class="text-center py-3 px-4 font-medium text-gray-700 border-r border-gray-200">สถานะ</th>
+                                <th class="text-center py-3 px-4 font-medium text-gray-700">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="summaryTableBody">
+                            <!-- Summary data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const CONFIG = {
+            SHEETS_URL: 'https://docs.google.com/spreadsheets/d/1kD1uXM3kRJzgQ2SP7gFRsLGWfjrKTdfG_t-4DNuCBok/edit?gid=502811608#gid=502811608',
+            APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwW773eZ2hU1JT0F7nCDbleMBLIWwPiSt4RnQDEzs2TuVwAUNrTkwAchZcZcTN4ujpE/exec',
+            SHEET_ID: '1kD1uXM3kRJzgQ2SP7gFRsLGWfjrKTdfG_t-4DNuCBok',
+            SUMMARY_SHEET_NAME: 'สรุปการนำเข้า',
+            DEFAULT_SHEET_NAME: 'Sheet1'
+        };
+
+        // Global State
+        let currentRound = null;
+        let allRoundsData = {};
+        let sheetsData = [];
+        let currentPackageProducts = [];
+        let availableSheets = [];
+        let currentSheetName = null;
+        let summarySheetData = []; // เพิ่มตัวแปรสำหรับเก็บข้อมูลชีทสรุป
+        let missingProductsData = []; // เพิ่มตัวแปรสำหรับเก็บข้อมูลสินค้าที่ขาด
+
+        // DOM Elements
+        const elements = {
+            // Main sections
+            sheetAlert: document.getElementById('sheetAlert'),
+            roundAlert: document.getElementById('roundAlert'),
+            packageSection: document.getElementById('packageSection'),
+            summarySection: document.getElementById('summarySection'),
+            
+            // Header
+            currentRoundDisplay: document.getElementById('currentRoundDisplay'),
+            roundStats: document.getElementById('roundStats'),
+            roundsBtn: document.getElementById('roundsBtn'),
+            summaryBtn: document.getElementById('summaryBtn'),
+            sheetSelector: document.getElementById('sheetSelector'),
+            loadSheetHeaderBtn: document.getElementById('loadSheetHeaderBtn'),
+            refreshSheetsBtn: document.getElementById('refreshSheetsBtn'),
+            sheetStatusText: document.getElementById('sheetStatusText'),
+            sheetStatusBadge: document.getElementById('sheetStatusBadge'),
+            
+            // Package form
+            packageNumber: document.getElementById('packageNumber'),
+            shippingCost: document.getElementById('shippingCost'),
+            productList: document.getElementById('productList'),
+            addProductBtn: document.getElementById('addProductBtn'),
+            savePackageBtn: document.getElementById('savePackageBtn'),
+            clearFormBtn: document.getElementById('clearFormBtn'),
+            
+            // Cost distribution
+            costDistributionMethod: document.getElementById('costDistributionMethod'),
+            shippingDistribution: document.getElementById('shippingDistribution'),
+            totalDistributed: document.getElementById('totalDistributed'),
+            remainingCost: document.getElementById('remainingCost'),
+            
+            // Rounds modal
+            roundsModal: document.getElementById('roundsModal'),
+            closeRoundsModal: document.getElementById('closeRoundsModal'),
+            newRoundName: document.getElementById('newRoundName'),
+            createRoundBtn: document.getElementById('createRoundBtn'),
+            roundsList: document.getElementById('roundsList'),
+            createFirstRoundBtn: document.getElementById('createFirstRoundBtn'),
+            
+            // Summary
+            summarySheetInput: document.getElementById('summarySheetInput'),
+            loadSheetBtn: document.getElementById('loadSheetBtn'),
+            summaryRoundSelect: document.getElementById('summaryRoundSelect'),
+            backToMainBtn: document.getElementById('backToMainBtn'),
+            statusFilter: document.getElementById('statusFilter'),
+            exportBtn: document.getElementById('exportBtn'),
+            copySummaryBtn: document.getElementById('copySummaryBtn'),
+            saveToSheetsBtn: document.getElementById('saveToSheetsBtn'),
+
+            summaryTableBody: document.getElementById('summaryTableBody'),
+            totalPackages: document.getElementById('totalPackages'),
+            completeItems: document.getElementById('completeItems'),
+            missingItems: document.getElementById('missingItems'),
+            totalCost: document.getElementById('totalCost'),
+
+            // Missing Products Analysis
+            analyzeMissingBtn: document.getElementById('analyzeMissingBtn'),
+            copyMissingBtn: document.getElementById('copyMissingBtn'),
+            missingProductsAlert: document.getElementById('missingProductsAlert'),
+            missingProductsSummary: document.getElementById('missingProductsSummary'),
+            showMissingDetailsBtn: document.getElementById('showMissingDetailsBtn'),
+            copyMissingListBtn: document.getElementById('copyMissingListBtn'),
+            missingProductsTable: document.getElementById('missingProductsTable'),
+            missingProductsTableBody: document.getElementById('missingProductsTableBody'),
+            noMissingProductsMessage: document.getElementById('noMissingProductsMessage'),
+            analysisInstructions: document.getElementById('analysisInstructions')
+        };
+
+        // Initialize App
+        function initApp() {
+            console.log('🚀 เริ่มต้นระบบ...');
+            loadSavedData();
+            setupEventListeners();
+            loadAvailableSheets();
+            updateUI();
+            // เพิ่มกล่องสินค้าเริ่มต้น 1 กล่อง
+            addProductItem();
+            
+            // ทดสอบปุ่มบันทึก
+            console.log('🔍 ทดสอบปุ่มบันทึก...');
+            const saveBtn = document.getElementById('savePackageBtn');
+            if (saveBtn) {
+                console.log('✅ พบปุ่มบันทึก:', saveBtn);
+                console.log('📋 Event listeners:', getEventListeners ? getEventListeners(saveBtn) : 'ไม่สามารถตรวจสอบได้');
+            } else {
+                console.error('❌ ไม่พบปุ่มบันทึก!');
+            }
+        }
+
+        // Load saved data from localStorage
+        function loadSavedData() {
+            const savedRounds = localStorage.getItem('allRoundsData');
+            if (savedRounds) {
+                try {
+                    allRoundsData = JSON.parse(savedRounds);
+                } catch (error) {
+                    console.error('Error loading saved rounds:', error);
+                    allRoundsData = {};
+                }
+            }
+
+            const savedCurrentRound = localStorage.getItem('currentRound');
+            if (savedCurrentRound && allRoundsData[savedCurrentRound]) {
+                currentRound = savedCurrentRound;
+            }
+
+            const savedSheetName = localStorage.getItem('currentSheetName');
+            if (savedSheetName) {
+                currentSheetName = savedSheetName;
+            }
+        }
+
+        // Save data to localStorage
+        function saveData() {
+            localStorage.setItem('allRoundsData', JSON.stringify(allRoundsData));
+            localStorage.setItem('currentRound', currentRound || '');
+            localStorage.setItem('currentSheetName', currentSheetName || '');
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            console.log('🔧 ตั้งค่า Event Listeners...');
+            
+            // Header buttons
+            elements.roundsBtn.addEventListener('click', showRoundsModal);
+            elements.summaryBtn.addEventListener('click', showSummarySection);
+            elements.createFirstRoundBtn.addEventListener('click', showRoundsModal);
+            elements.loadSheetHeaderBtn.addEventListener('click', loadSheetFromHeader);
+            elements.sheetSelector.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') loadSheetFromHeader();
+            });
+            elements.refreshSheetsBtn.addEventListener('click', loadAvailableSheets);
+
+            // Rounds modal
+            elements.closeRoundsModal.addEventListener('click', hideRoundsModal);
+            elements.createRoundBtn.addEventListener('click', createNewRound);
+            elements.newRoundName.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') createNewRound();
+            });
+
+            // Package form
+            elements.addProductBtn.addEventListener('click', addProductItem);
+
+            // ปุ่มทดสอบ
+            const testSaveBtn = document.getElementById('testSaveBtn');
+            if (testSaveBtn) {
+                testSaveBtn.addEventListener('click', () => {
+                    console.log('🧪 ทดสอบระบบ...');
+                    console.log('📊 สถานะปัจจุบัน:');
+                    console.log('  - รอบสินค้า:', currentRound);
+                    console.log('  - เลขพัสดุ:', elements.packageNumber.value);
+                    console.log('  - ค่านำเข้า:', elements.shippingCost.value);
+                    console.log('  - จำนวนสินค้า:', elements.productList.querySelectorAll('.border').length);
+                    console.log('  - ข้อมูลชีท:', sheetsData.length, 'รายการ');
+                    
+                    // ทดสอบฟังก์ชันบันทึก
+                    if (currentRound) {
+                        showNotification('🧪 ระบบพร้อมใช้งาน! ลองกรอกข้อมูลและกดบันทึก', 'success');
+                    } else {
+                        showNotification('⚠️ กรุณาสร้างรอบสินค้าก่อน', 'warning');
+                    }
+                });
+            }
+
+            // ทดสอบปุ่มบันทึก
+            console.log('🔍 ตั้งค่าปุ่มบันทึก...');
+            if (elements.savePackageBtn) {
+                elements.savePackageBtn.addEventListener('click', (e) => {
+                    console.log('🖱️ คลิกปุ่มบันทึก!', e);
+                    e.preventDefault();
+                    savePackage();
+                });
+                console.log('✅ ตั้งค่าปุ่มบันทึกเรียบร้อย');
+            } else {
+                console.error('❌ ไม่พบปุ่มบันทึก!');
+            }
+            
+            if (elements.clearFormBtn) {
+                elements.clearFormBtn.addEventListener('click', clearForm);
+                console.log('✅ ตั้งค่าปุ่มล้างฟอร์มเรียบร้อย');
+            }
+
+            // Shipping cost calculation
+            elements.shippingCost.addEventListener('input', updateCostDistribution);
+            elements.costDistributionMethod.addEventListener('change', updateCostDistribution);
+
+            // Summary
+            elements.loadSheetBtn.addEventListener('click', loadSummarySheet);
+            elements.summarySheetInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') loadSummarySheet();
+            });
+            elements.backToMainBtn.addEventListener('click', showPackageSection);
+            elements.summaryRoundSelect.addEventListener('change', updateSummaryTable);
+            elements.statusFilter.addEventListener('change', updateSummaryTable);
+            elements.exportBtn.addEventListener('click', exportData);
+            elements.copySummaryBtn.addEventListener('click', copySummaryData);
+            elements.saveToSheetsBtn.addEventListener('click', saveToSheets);
+
+            // Missing Products Analysis
+            elements.analyzeMissingBtn.addEventListener('click', analyzeMissingProducts);
+            elements.copyMissingBtn.addEventListener('click', copyMissingProducts);
+            elements.showMissingDetailsBtn.addEventListener('click', showMissingDetails);
+            elements.copyMissingListBtn.addEventListener('click', copyMissingProducts);
+            
+            // Missing Products Filter
+            const missingProductsFilter = document.getElementById('missingProductsFilter');
+            if (missingProductsFilter) {
+                missingProductsFilter.addEventListener('change', filterMissingProducts);
+            }
+
+
+            // Close modal when clicking outside
+            elements.roundsModal.addEventListener('click', (e) => {
+                if (e.target === elements.roundsModal) hideRoundsModal();
+            });
+            
+            console.log('✅ ตั้งค่า Event Listeners เสร็จสิ้น');
+        }
+
+        // Load Sheet from Header Function
+        async function loadSheetFromHeader() {
+            const sheetName = elements.sheetSelector.value.trim();
+            if (!sheetName) {
+                showNotification('กรุณาพิมพ์ชื่อชีทที่ต้องการโหลด', 'error');
+                return;
+            }
+
+            elements.loadSheetHeaderBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            elements.loadSheetHeaderBtn.disabled = true;
+
+            try {
+                currentSheetName = sheetName;
+                await loadProductsData(sheetName);
+                saveData();
+                
+            } catch (error) {
+                console.error('Error loading sheet from header:', error);
+                showNotification('ไม่สามารถโหลดข้อมูลจากชีท: ' + error.message, 'error');
+            } finally {
+                elements.loadSheetHeaderBtn.innerHTML = '<i class="fas fa-search"></i>';
+                elements.loadSheetHeaderBtn.disabled = false;
+            }
+        }
+
+        // Load Summary Sheet Function
+        async function loadSummarySheet() {
+            const sheetName = elements.summarySheetInput.value.trim();
+            if (!sheetName) {
+                showNotification('กรุณาพิมพ์ชื่อชีทที่ต้องการโหลด', 'error');
+                return;
+            }
+
+            elements.loadSheetBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            elements.loadSheetBtn.disabled = true;
+
+            try {
+                const csvUrl = convertToCSVUrl(CONFIG.SHEETS_URL, sheetName);
+                const response = await fetch(csvUrl);
+                if (!response.ok) throw new Error(`ไม่พบชีท "${sheetName}" หรือไม่สามารถเข้าถึงได้`);
+                
+                const csvText = await response.text();
+                summarySheetData = parseCSVData(csvText);
+                
+                if (summarySheetData.length === 0) {
+                    throw new Error(`ชีท "${sheetName}" ไม่มีข้อมูลหรือรูปแบบไม่ถูกต้อง`);
+                }
+                
+                showNotification(`โหลดข้อมูลจากชีท "${sheetName}" สำเร็จ: ${summarySheetData.length} รายการ`, 'success');
+                updateSummaryTableFromSheet();
+                
+            } catch (error) {
+                console.error('Error loading summary sheet:', error);
+                showNotification('ไม่สามารถโหลดข้อมูลจากชีท: ' + error.message, 'error');
+            } finally {
+                elements.loadSheetBtn.innerHTML = '<i class="fas fa-search"></i>';
+                elements.loadSheetBtn.disabled = false;
+            }
+        }
+
+        // Update Summary Table from Sheet Data
+        function updateSummaryTableFromSheet() {
+            if (summarySheetData.length === 0) {
+                elements.summaryTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="py-8 px-4 text-center text-gray-500">
+                            <i class="fas fa-inbox text-4xl mb-2 block"></i>
+                            ไม่มีข้อมูลในชีท
+                        </td>
+                    </tr>
+                `;
+                updateSummaryStats(0, 0, 0, 0);
+                return;
+            }
+
+            const statusFilter = elements.statusFilter.value;
+            let completeItems = 0, missingItems = 0, excessItems = 0, totalCost = 0;
+            const summaryRows = [];
+
+            summarySheetData.forEach((product, index) => {
+                const ordered = product.quantity || 0;
+                const received = 0; // ข้อมูลจากชีทไม่มีจำนวนที่ได้
+                const missing = Math.max(0, ordered - received);
+                const excess = Math.max(0, received - ordered);
+                
+                let status = 'ขาด';
+                let statusValue = 'missing';
+                let diffText = `-${missing}`;
+                let statusClass = 'bg-yellow-100 text-yellow-600';
+                let diffClass = 'text-red-600 font-medium';
+                
+                if (missing > 0) {
+                    missingItems++;
+                } else if (excess > 0) {
+                    status = 'เกิน';
+                    statusValue = 'excess';
+                    diffText = `+${excess}`;
+                    statusClass = 'bg-blue-100 text-blue-600';
+                    diffClass = 'text-blue-600 font-medium';
+                    excessItems++;
+                } else {
+                    status = 'ครบ';
+                    statusValue = 'complete';
+                    diffText = '0';
+                    statusClass = 'bg-green-100 text-green-600';
+                    diffClass = 'text-gray-600';
+                    completeItems++;
+                }
+
+                if (statusFilter === 'all' || statusFilter === statusValue) {
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-gray-200 hover:bg-gray-50 transition-colors';
+                    
+                    row.innerHTML = `
+                        <td class="py-4 px-4 border-r border-gray-100">${product.code || ''}</td>
+                        <td class="py-4 px-4 border-r border-gray-100">${product.name || ''}</td>
+                        <td class="py-4 px-4 text-gray-600 border-r border-gray-100">${product.option || ''}</td>
+                        <td class="py-4 px-4 font-medium text-blue-600 text-sm border-r border-gray-100">-</td>
+                        <td class="py-4 px-4 text-center font-medium text-gray-900 border-r border-gray-100">${ordered.toLocaleString()}</td>
+                        <td class="py-4 px-4 text-center font-medium text-gray-900 border-r border-gray-100">${received.toLocaleString()}</td>
+                        <td class="py-4 px-4 text-center font-medium ${diffClass} border-r border-gray-100">${diffText}</td>
+                        <td class="py-4 px-4 text-center font-medium text-green-600 border-r border-gray-100">0</td>
+                        <td class="py-4 px-4 text-center border-r border-gray-100">
+                            <span class="px-3 py-1 rounded-full text-sm font-medium ${statusClass}">
+                                ${status}
+                            </span>
+                        </td>
+                        <td class="py-4 px-4 text-center">-</td>
+                    `;
+                    
+                    summaryRows.push(row);
+                }
+            });
+
+            elements.summaryTableBody.innerHTML = '';
+            summaryRows.forEach(row => {
+                elements.summaryTableBody.appendChild(row);
+            });
+
+            if (summaryRows.length === 0) {
+                elements.summaryTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="py-8 px-4 text-center text-gray-500">
+                            <i class="fas fa-filter text-4xl mb-2 block"></i>
+                            ไม่มีข้อมูลที่ตรงกับตัวกรองที่เลือก
+                        </td>
+                    </tr>
+                `;
+            }
+
+            updateSummaryStats(0, completeItems, missingItems, totalCost);
+        }
+
+        // Load available sheets from Google Sheets
+        async function loadAvailableSheets() {
+            elements.refreshSheetsBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            elements.refreshSheetsBtn.disabled = true;
+            
+            try {
+                // ใช้ Google Sheets API เพื่อดึงรายชื่อชีททั้งหมด
+                const sheetsApiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}?key=AIzaSyDummy&fields=sheets.properties.title`;
+                
+                // รายชื่อชีทที่คาดว่าจะมี (รวมชีท 19 ที่เพิ่งสร้าง)
+                const expectedSheets = ['21s', '20s', '19', '18', 'ข้อมูลรอบ', 'ข้อมูลหลัก', 'รายละเอียดพัสดุ', 'สรุปการนำเข้า'];
+                availableSheets = [];
+                
+                // ทดสอบแต่ละชีทว่าเข้าถึงได้หรือไม่
+                for (const sheetName of expectedSheets) {
+                    try {
+                        const csvUrl = convertToCSVUrl(CONFIG.SHEETS_URL, sheetName);
+                        const response = await fetch(csvUrl);
+                        if (response.ok) {
+                            const csvText = await response.text();
+                            // ตรวจสอบว่าได้ข้อมูลจริงหรือไม่
+                            if (csvText && !csvText.includes('<!DOCTYPE html>') && 
+                                !csvText.includes('Error') && csvText.trim().length > 10) {
+                                availableSheets.push(sheetName);
+                                console.log(`✅ พบชีท: ${sheetName}`);
+                            } else {
+                                console.log(`❌ ชีท ${sheetName} ไม่มีข้อมูลหรือเข้าถึงไม่ได้`);
+                            }
+                        } else {
+                            console.log(`❌ ไม่สามารถเข้าถึงชีท ${sheetName} (${response.status})`);
+                        }
+                    } catch (e) {
+                        console.log(`❌ เกิดข้อผิดพลาดกับชีท ${sheetName}:`, e.message);
+                        continue;
+                    }
+                }
+                
+                // ถ้าไม่เจอชีทไหนเลย ให้ใส่รายชื่อที่คาดว่าจะมี
+                if (availableSheets.length === 0) {
+                    availableSheets = expectedSheets;
+                    console.log('⚠️ ไม่พบชีทที่เข้าถึงได้ ใช้รายชื่อเริ่มต้น');
+                }
+                
+                updateSheetSelector();
+                
+                // ถ้ามีชื่อชีทที่บันทึกไว้ ให้แสดงในกล่อง input
+                if (currentSheetName) {
+                    elements.sheetSelector.value = currentSheetName;
+                }
+                
+                showNotification(`พบ ${availableSheets.length} ชีท: ${availableSheets.join(', ')}`, 'success');
+                
+            } catch (error) {
+                console.error('Error loading sheets:', error);
+                // ถ้าเกิดข้อผิดพลาด ให้ใช้ชื่อชีทที่คาดว่าจะมี
+                availableSheets = ['21s', '20s', '19', '18', 'ข้อมูลรอบ', 'ข้อมูลหลัก', 'รายละเอียดพัสดุ', 'สรุปการนำเข้า'];
+                updateSheetSelector();
+                showNotification('โหลดรายการชีทจาก Google Sheets แล้ว', 'info');
+            } finally {
+                elements.refreshSheetsBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+                elements.refreshSheetsBtn.disabled = false;
+            }
+        }
+
+        // Update sheet selector input
+        function updateSheetSelector() {
+            if (currentSheetName) {
+                elements.sheetSelector.value = currentSheetName;
+            }
+        }
+
+
+
+        // Load products data from specific sheet
+        async function loadProductsData(sheetName) {
+            if (!sheetName) {
+                sheetName = currentSheetName || CONFIG.DEFAULT_SHEET_NAME;
+            }
+            
+            updateSheetStatus('กำลังโหลดข้อมูล...', 'กำลังเชื่อมต่อ', 'bg-yellow-100 text-yellow-600');
+            
+            try {
+                const csvUrl = convertToCSVUrl(CONFIG.SHEETS_URL, sheetName);
+                const response = await fetch(csvUrl);
+                if (!response.ok) throw new Error(`ไม่พบชีท "${sheetName}" หรือไม่สามารถเข้าถึงได้`);
+                
+                const csvText = await response.text();
+                sheetsData = parseCSVData(csvText);
+                
+                if (sheetsData.length === 0) {
+                    throw new Error(`ชีท "${sheetName}" ไม่มีข้อมูลหรือรูปแบบไม่ถูกต้อง`);
+                }
+                
+                updateSheetStatus(
+                    `เชื่อมต่อชีท "${sheetName}" สำเร็จ - พบ ${sheetsData.length} รายการ`,
+                    'เชื่อมต่อแล้ว',
+                    'bg-green-100 text-green-600'
+                );
+                
+                showNotification(`โหลดข้อมูลจากชีท "${sheetName}" สำเร็จ: ${sheetsData.length} รายการ`, 'success');
+                
+            } catch (error) {
+                console.error('Error loading products data:', error);
+                sheetsData = [];
+                updateSheetStatus(
+                    `ไม่สามารถโหลดข้อมูลจากชีท "${sheetName}": ${error.message}`,
+                    'เชื่อมต่อไม่ได้',
+                    'bg-red-100 text-red-600'
+                );
+                showNotification('ไม่สามารถโหลดข้อมูลสินค้าได้: ' + error.message, 'error');
+            }
+        }
+
+        // Update sheet connection status
+        function updateSheetStatus(statusText, badgeText, badgeClass) {
+            elements.sheetStatusText.textContent = statusText;
+            elements.sheetStatusBadge.textContent = badgeText;
+            elements.sheetStatusBadge.className = `px-3 py-1 rounded-full text-xs font-medium ${badgeClass}`;
+        }
+
+        // Convert Google Sheets URL to CSV
+        function convertToCSVUrl(sheetsUrl, sheetName) {
+            const match = sheetsUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+            if (!match) throw new Error('URL ไม่ถูกต้อง');
+            const sheetId = match[1];
+            return `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+        }
+
+        // Parse CSV data
+        function parseCSVData(csvText) {
+            const lines = csvText.split('\n');
+            const data = [];
+            
+            console.log(`🔍 กำลังแปลงข้อมูล CSV จำนวน ${lines.length} บรรทัด`);
+            
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                
+                const columns = parseCSVLine(line);
+                if (columns.length >= 5 && columns[0] && columns[4]) {
+                    const code = columns[0].trim();
+                    const name = columns[1] ? columns[1].trim() : '';
+                    const option = columns[2] ? columns[2].trim() : '';
+                    const size = columns[3] ? columns[3].trim() : '';
+                    const quantity = parseInt(columns[4]) || 0;
+                    
+                    data.push({ code, name, option, size, quantity });
+                    
+                    // แสดงข้อมูลตัวอย่าง 5 รายการแรก
+                    if (i <= 5) {
+                        console.log(`📦 ${code} | ${name} | ${option} | ${size} | ${quantity} ชิ้น`);
+                    }
+                }
+            }
+            
+            console.log(`✅ แปลงข้อมูลเสร็จ: ${data.length} รายการ`);
+            
+            // แสดงสถิติข้อมูล
+            const uniqueCodes = new Set(data.map(item => item.code));
+            const uniqueOptions = new Set(data.map(item => `${item.code}|${item.option}`));
+            console.log(`📊 สถิติ: ${uniqueCodes.size} รหัสสินค้า, ${uniqueOptions.size} ตัวเลือก`);
+            
+            return data;
+        }
+
+        // Parse CSV line handling quotes
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current);
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current);
+            return result.map(item => item.replace(/^"|"$/g, ''));
+        }
+
+        // Update UI based on current state
+        function updateUI() {
+            // Show/hide sheet alert based on connection status
+            if (!currentSheetName || sheetsData.length === 0) {
+                elements.sheetAlert.classList.remove('hidden');
+            } else {
+                elements.sheetAlert.classList.add('hidden');
+            }
+            
+            if (!currentRound) {
+                elements.roundAlert.classList.remove('hidden');
+                elements.packageSection.classList.add('hidden');
+                elements.summarySection.classList.add('hidden');
+                elements.currentRoundDisplay.textContent = 'ยังไม่เลือกรอบ';
+                elements.roundStats.textContent = '0 พัสดุ';
+            } else {
+                elements.roundAlert.classList.add('hidden');
+                elements.packageSection.classList.remove('hidden');
+                elements.summarySection.classList.add('hidden');
+                elements.currentRoundDisplay.textContent = currentRound;
+                
+                const roundData = allRoundsData[currentRound];
+                const packageCount = roundData ? roundData.packages.length : 0;
+                elements.roundStats.textContent = packageCount + ' พัสดุ';
+            }
+            
+            updateRoundsList();
+            updateSummaryRoundSelect();
+            updateSheetSelector();
+        }
+
+        // Rounds Management
+        function showRoundsModal() {
+            elements.roundsModal.classList.remove('hidden');
+            elements.newRoundName.focus();
+        }
+
+        function hideRoundsModal() {
+            elements.roundsModal.classList.add('hidden');
+            elements.newRoundName.value = '';
+        }
+
+        function createNewRound() {
+            const roundName = elements.newRoundName.value.trim();
+            if (!roundName) {
+                showNotification('กรุณากรอกชื่อรอบสินค้า', 'error');
+                return;
+            }
+
+            if (allRoundsData[roundName]) {
+                showNotification('รอบสินค้านี้มีอยู่แล้ว', 'error');
+                return;
+            }
+
+            allRoundsData[roundName] = {
+                name: roundName,
+                created: new Date().toISOString(),
+                packages: []
+            };
+
+            currentRound = roundName;
+            saveData();
+            updateUI();
+            hideRoundsModal();
+            
+            showNotification('สร้างรอบ "' + roundName + '" เรียบร้อยแล้ว', 'success');
+        }
+
+        function selectRound(roundName) {
+            currentRound = roundName;
+            saveData();
+            updateUI();
+            hideRoundsModal();
+            showNotification('เลือกรอบ "' + roundName + '" แล้ว', 'success');
+        }
+
+        function deleteRound(roundName) {
+            if (confirm('คุณต้องการลบรอบ "' + roundName + '" ใช่หรือไม่?\n\nข้อมูลทั้งหมดในรอบนี้จะถูกลบและไม่สามารถกู้คืนได้')) {
+                delete allRoundsData[roundName];
+                if (currentRound === roundName) {
+                    currentRound = null;
+                }
+                saveData();
+                updateUI();
+                showNotification('ลบรอบ "' + roundName + '" เรียบร้อยแล้ว', 'success');
+            }
+        }
+
+        function updateRoundsList() {
+            const roundsList = elements.roundsList;
+            roundsList.innerHTML = '';
+
+            const rounds = Object.keys(allRoundsData);
+            if (rounds.length === 0) {
+                roundsList.innerHTML = '<p class="text-gray-500 text-center py-4">ยังไม่มีรอบสินค้า</p>';
+                return;
+            }
+
+            rounds.forEach(roundName => {
+                const roundData = allRoundsData[roundName];
+                const isActive = roundName === currentRound;
+                
+                const roundItem = document.createElement('div');
+                roundItem.className = `flex items-center justify-between p-3 border rounded-lg ${isActive ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'} transition-colors`;
+                
+                roundItem.innerHTML = `
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2">
+                            <h4 class="font-medium text-gray-900">${roundName}</h4>
+                            ${isActive ? '<span class="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">ใช้งานอยู่</span>' : ''}
+                        </div>
+                        <p class="text-sm text-gray-600">${roundData.packages.length} พัสดุ • สร้างเมื่อ ${new Date(roundData.created).toLocaleDateString('th-TH')}</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        ${!isActive ? `<button onclick="selectRound('${roundName}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">เลือก</button>` : ''}
+                        <button onclick="deleteRound('${roundName}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">ลบ</button>
+                    </div>
+                `;
+                
+                roundsList.appendChild(roundItem);
+            });
+        }
+
+        function updateSummaryRoundSelect() {
+            const select = elements.summaryRoundSelect;
+            select.innerHTML = '<option value="">เลือกรอบสินค้า</option>';
+            
+            Object.keys(allRoundsData).forEach(roundName => {
+                const option = document.createElement('option');
+                option.value = roundName;
+                option.textContent = roundName;
+                if (roundName === currentRound) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+        }
+
+        // Product Management
+        function addProductItem() {
+            // ซ่อนข้อความแนะนำ
+            const noProductsMessage = document.getElementById('noProductsMessage');
+            if (noProductsMessage) {
+                noProductsMessage.style.display = 'none';
+            }
+            
+            const productItem = document.createElement('div');
+            productItem.className = 'border border-gray-200 rounded-lg p-4 space-y-4 fade-in';
+            
+            productItem.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="relative">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">รหัสสินค้า</label>
+                        <input type="text" class="product-code w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors" placeholder="ค้นหารหัสหรือชื่อสินค้า...">
+                        <div class="product-suggestions absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto hidden">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">ตัวเลือก/รสชาติ</label>
+                        <select class="product-option w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                            <option value="">เลือกตัวเลือก...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">จำนวนที่ได้</label>
+                        <input type="number" class="received-qty w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors" min="0">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">จำนวนที่สั่ง</label>
+                        <input type="number" class="ordered-qty w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50" readonly>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">กรอกแล้ว</label>
+                        <input type="number" class="filled-qty w-full px-3 py-2 border border-gray-300 rounded-lg bg-blue-50" readonly>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">ขาด</label>
+                        <input type="number" class="missing-qty w-full px-3 py-2 border border-gray-300 rounded-lg bg-red-50" readonly>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">เกิน</label>
+                        <input type="number" class="excess-qty w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50" readonly>
+                    </div>
+                    <div class="flex items-end space-x-2">
+                        <button type="button" class="duplicate-product flex-1 bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg transition-colors text-sm">
+                            <i class="fas fa-clone mr-1"></i>Duplicate
+                        </button>
+                        <button type="button" class="remove-product flex-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg transition-colors text-sm">
+                            <i class="fas fa-trash mr-1"></i>ลบ
+                        </button>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between">
+                    <div class="status-badge px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+                        รอข้อมูล
+                    </div>
+                </div>
+            `;
+
+            elements.productList.appendChild(productItem);
+            setupProductItemEvents(productItem);
+            updateCostDistribution();
+        }
+
+        function setupProductItemEvents(productItem) {
+            const codeInput = productItem.querySelector('.product-code');
+            const optionSelect = productItem.querySelector('.product-option');
+            const receivedInput = productItem.querySelector('.received-qty');
+            const removeBtn = productItem.querySelector('.remove-product');
+            const duplicateBtn = productItem.querySelector('.duplicate-product');
+            const suggestions = productItem.querySelector('.product-suggestions');
+
+            // Remove product
+            removeBtn.addEventListener('click', () => {
+                productItem.remove();
+                updateCostDistribution();
+                
+                // แสดงข้อความแนะนำถ้าไม่มีสินค้าเหลือ
+                const remainingProducts = elements.productList.querySelectorAll('.border');
+                const noProductsMessage = document.getElementById('noProductsMessage');
+                if (remainingProducts.length === 0 && noProductsMessage) {
+                    noProductsMessage.style.display = 'block';
+                }
+            });
+
+            // Duplicate product
+            duplicateBtn.addEventListener('click', () => {
+                duplicateProductItem(productItem);
+            });
+
+            // Product code search
+            codeInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.trim().toLowerCase();
+                if (searchTerm.length >= 1 && sheetsData.length > 0) {
+                    showProductSuggestions(productItem, searchTerm);
+                } else {
+                    hideSuggestions(productItem);
+                }
+            });
+
+            codeInput.addEventListener('focus', (e) => {
+                const searchTerm = e.target.value.trim().toLowerCase();
+                if (searchTerm.length >= 1 && sheetsData.length > 0) {
+                    showProductSuggestions(productItem, searchTerm);
+                }
+            });
+
+            // Option change
+            optionSelect.addEventListener('change', () => {
+                updateProductInfo(productItem);
+                updateCostDistribution();
+            });
+
+            // Received quantity change
+            receivedInput.addEventListener('input', () => {
+                calculateQuantities(productItem);
+                updateCostDistribution();
+            });
+
+            // Hide suggestions when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!productItem.contains(e.target)) {
+                    hideSuggestions(productItem);
+                }
+            });
+        }
+
+        function showProductSuggestions(productItem, searchTerm) {
+            const suggestions = productItem.querySelector('.product-suggestions');
+            
+            const filteredProducts = sheetsData.filter(product => {
+                return product.code.toLowerCase().includes(searchTerm) || 
+                       product.name.toLowerCase().includes(searchTerm);
+            });
+
+            if (filteredProducts.length === 0) {
+                hideSuggestions(productItem);
+                return;
+            }
+
+            const uniqueProducts = {};
+            filteredProducts.forEach(product => {
+                if (!uniqueProducts[product.code]) {
+                    uniqueProducts[product.code] = {
+                        code: product.code,
+                        name: product.name,
+                        options: []
+                    };
+                }
+                if (!uniqueProducts[product.code].options.some(opt => opt.option === product.option && opt.size === product.size)) {
+                    uniqueProducts[product.code].options.push({
+                        option: product.option,
+                        size: product.size,
+                        quantity: product.quantity
+                    });
+                }
+            });
+
+            suggestions.innerHTML = '';
+            Object.values(uniqueProducts).slice(0, 8).forEach(product => {
+                const suggestionItem = document.createElement('div');
+                suggestionItem.className = 'px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors';
+                suggestionItem.innerHTML = `
+                    <div class="font-medium text-gray-900">${product.code}</div>
+                    <div class="text-sm text-gray-600">${product.name}</div>
+                    <div class="text-xs text-blue-600">${product.options.length} ตัวเลือก</div>
+                `;
+                
+                suggestionItem.addEventListener('click', () => {
+                    selectProduct(productItem, product);
+                });
+                
+                suggestions.appendChild(suggestionItem);
+            });
+
+            suggestions.classList.remove('hidden');
+        }
+
+        function hideSuggestions(productItem) {
+            const suggestions = productItem.querySelector('.product-suggestions');
+            suggestions.classList.add('hidden');
+        }
+
+        function selectProduct(productItem, product) {
+            const codeInput = productItem.querySelector('.product-code');
+            const optionSelect = productItem.querySelector('.product-option');
+            
+            codeInput.value = `${product.code} - ${product.name}`;
+            
+            optionSelect.innerHTML = '<option value="">เลือกตัวเลือก...</option>';
+            
+            console.log(`🎯 เลือกสินค้า: ${product.code} - ${product.name}`);
+            console.log(`📋 ตัวเลือกที่มี: ${product.options.length} รายการ`);
+            
+            product.options.forEach((option, index) => {
+                const optionElement = document.createElement('option');
+                optionElement.value = `${option.option}|${option.size}`;
+                optionElement.textContent = `${option.option} (${option.size})`;
+                optionElement.setAttribute('data-quantity', option.quantity);
+                optionSelect.appendChild(optionElement);
+                
+                console.log(`  ${index + 1}. ${option.option} (${option.size}) = ${option.quantity} ชิ้น`);
+            });
+            
+            hideSuggestions(productItem);
+            updateProductInfo(productItem);
+            updateCostDistribution();
+        }
+
+        function updateProductInfo(productItem) {
+            const optionSelect = productItem.querySelector('.product-option');
+            const selectedOption = optionSelect.options[optionSelect.selectedIndex];
+            const codeInput = productItem.querySelector('.product-code');
+            
+            if (selectedOption && selectedOption.value && codeInput) {
+                const codeWithName = codeInput.value.trim();
+                const code = codeWithName.split(' - ')[0];
+                const [option, size] = selectedOption.value.split('|');
+                
+                // รวมจำนวนของรหัสสินค้า + ตัวเลือกนี้จากฐานข้อมูล
+                let totalQuantity = 0;
+                if (sheetsData.length > 0) {
+                    console.log(`🔍 ค้นหาจำนวนสำหรับ: ${code} - ${option}`);
+                    
+                    // หาสินค้าที่ตรงกับรหัส + ตัวเลือก และรวมจำนวนทั้งหมด
+                    const matchingProducts = sheetsData.filter(product => 
+                        product.code === code && product.option === option
+                    );
+                    
+                    console.log(`📋 พบข้อมูลที่ตรง: ${matchingProducts.length} รายการ`);
+                    
+                    matchingProducts.forEach((product, index) => {
+                        const qty = product.quantity || 0;
+                        totalQuantity += qty;
+                        console.log(`  ${index + 1}. ${product.code} - ${product.option} (${product.size || 'ไม่ระบุ'}): ${qty} ชิ้น`);
+                    });
+                    
+                    console.log(`📊 ${code} - ${option}: รวมทั้งหมด ${totalQuantity} ชิ้น จาก ${matchingProducts.length} รายการ`);
+                }
+                
+                productItem.querySelector('.ordered-qty').value = totalQuantity;
+                calculateQuantities(productItem);
+            }
+        }
+
+        function calculateQuantities(productItem) {
+            const received = parseInt(productItem.querySelector('.received-qty').value) || 0;
+            const ordered = parseInt(productItem.querySelector('.ordered-qty').value) || 0;
+            
+            // คำนวณจำนวนที่กรอกแล้วจากข้อมูลสรุป
+            const codeInput = productItem.querySelector('.product-code');
+            const optionSelect = productItem.querySelector('.product-option');
+            
+            let filled = 0;
+            
+            if (codeInput && optionSelect && currentRound && allRoundsData[currentRound]) {
+                const codeWithName = codeInput.value.trim();
+                const code = codeWithName.split(' - ')[0];
+                const selectedOption = optionSelect.options[optionSelect.selectedIndex];
+                const optionText = selectedOption ? selectedOption.text : '';
+                
+                // หาจำนวนที่กรอกแล้วจากพัสดุอื่นๆ ในรอบเดียวกัน (ไม่รวมพัสดุปัจจุบัน)
+                const currentPackageNumber = elements.packageNumber.value.trim();
+                const packages = allRoundsData[currentRound].packages || [];
+                
+                packages.forEach(pkg => {
+                    // ข้ามพัสดุปัจจุบันที่กำลังแก้ไข
+                    if (pkg.packageNumber === currentPackageNumber) return;
+                    
+                    pkg.products.forEach(product => {
+                        if (product.code === code && product.option === optionText) {
+                            filled += product.received || 0;
+                        }
+                    });
+                });
+                
+                console.log(`📊 ${code} - ${optionText}: สั่ง=${ordered}, กรอกแล้ว=${filled}, ได้ครั้งนี้=${received}`);
+            }
+            
+            // ขาด = จำนวนที่สั่ง - (กรอกแล้ว + ได้ครั้งนี้)
+            const totalReceived = filled + received;
+            const missing = Math.max(0, ordered - totalReceived);
+            const excess = Math.max(0, totalReceived - ordered);
+
+            productItem.querySelector('.filled-qty').value = filled;
+            productItem.querySelector('.missing-qty').value = missing;
+            productItem.querySelector('.excess-qty').value = excess;
+
+            const statusBadge = productItem.querySelector('.status-badge');
+            if (totalReceived === ordered) {
+                statusBadge.className = 'status-badge px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-600';
+                statusBadge.textContent = 'ครบ';
+            } else if (totalReceived < ordered) {
+                statusBadge.className = 'status-badge px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-600';
+                statusBadge.textContent = 'ขาด';
+            } else {
+                statusBadge.className = 'status-badge px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-600';
+                statusBadge.textContent = 'เกิน';
+            }
+        }
+
+        // Duplicate Product Item Function
+        function duplicateProductItem(sourceItem) {
+            const codeInput = sourceItem.querySelector('.product-code');
+            const optionSelect = sourceItem.querySelector('.product-option');
+            
+            const codeWithName = (codeInput && codeInput.value) ? codeInput.value.trim() : '';
+            const selectedOptionText = optionSelect && optionSelect.selectedIndex > 0 ? optionSelect.options[optionSelect.selectedIndex].text : '';
+            
+            if (!codeWithName) {
+                showNotification('กรุณากรอกรหัสสินค้าก่อน Duplicate', 'warning');
+                return;
+            }
+
+            console.log('🔄 Duplicate สินค้า:', codeWithName);
+            console.log('📋 ตัวเลือกที่เลือก:', selectedOptionText);
+
+            // ซ่อนข้อความแนะนำ
+            const noProductsMessage = document.getElementById('noProductsMessage');
+            if (noProductsMessage) {
+                noProductsMessage.style.display = 'none';
+            }
+
+            // Clone กล่องสินค้าเดิมทั้งหมด
+            const clonedItem = sourceItem.cloneNode(true);
+            clonedItem.classList.add('fade-in');
+            
+            // ล้างค่าจำนวนที่ได้ในกล่องใหม่ (ให้กรอกใหม่)
+            const clonedReceivedInput = clonedItem.querySelector('.received-qty');
+            if (clonedReceivedInput) {
+                clonedReceivedInput.value = '';
+            }
+            
+            // ล้างค่าที่คำนวณได้ (filled, missing, excess)
+            const clonedFilledInput = clonedItem.querySelector('.filled-qty');
+            const clonedMissingInput = clonedItem.querySelector('.missing-qty');
+            const clonedExcessInput = clonedItem.querySelector('.excess-qty');
+            
+            if (clonedFilledInput) clonedFilledInput.value = '';
+            if (clonedMissingInput) clonedMissingInput.value = '';
+            if (clonedExcessInput) clonedExcessInput.value = '';
+            
+            // รีเซ็ตสถานะ
+            const clonedStatusBadge = clonedItem.querySelector('.status-badge');
+            if (clonedStatusBadge) {
+                clonedStatusBadge.className = 'status-badge px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600';
+                clonedStatusBadge.textContent = 'รอข้อมูล';
+            }
+            
+            // เพิ่มกล่องที่ clone แล้วเข้าไปในรายการ
+            elements.productList.appendChild(clonedItem);
+            
+            // ตั้งค่า event listeners ใหม่สำหรับกล่องที่ clone
+            setupProductItemEvents(clonedItem);
+            
+            // คำนวณข้อมูลใหม่สำหรับกล่องที่ clone
+            updateProductInfo(clonedItem);
+            updateCostDistribution();
+            
+            // Focus ที่ช่องจำนวนที่ได้ในกล่องใหม่
+            setTimeout(() => {
+                if (clonedReceivedInput) {
+                    clonedReceivedInput.focus();
+                    clonedReceivedInput.select();
+                }
+            }, 100);
+            
+            const code = codeWithName.split(' - ')[0];
+            showNotification(`✅ Duplicate สินค้า "${code}" เรียบร้อย! ${selectedOptionText ? `รวมทั้งตัวเลือก "${selectedOptionText}"` : ''}\n💡 กรอกจำนวนที่ได้ในกล่องใหม่`, 'success');
+        }
+
+        function updateCostDistribution() {
+            const totalCost = parseFloat(elements.shippingCost.value) || 0;
+            const method = elements.costDistributionMethod.value;
+            const productItems = elements.productList.querySelectorAll('.border');
+            
+            if (totalCost === 0 || productItems.length === 0) {
+                elements.shippingDistribution.innerHTML = '<p class="text-gray-500 text-center py-4">ยังไม่มีข้อมูลสินค้าหรือค่านำเข้า</p>';
+                elements.totalDistributed.textContent = '0';
+                elements.remainingCost.textContent = '0';
+                return;
+            }
+
+            elements.shippingDistribution.innerHTML = '';
+            let distributedTotal = 0;
+
+            if (method === 'proportion') {
+                let totalQuantity = 0;
+                const productData = [];
+
+                productItems.forEach(item => {
+                    const codeInput = item.querySelector('.product-code');
+                    const receivedInput = item.querySelector('.received-qty');
+                    
+                    const codeWithName = (codeInput && codeInput.value) ? codeInput.value.trim() : '';
+                    const code = codeWithName.split(' - ')[0];
+                    const received = (receivedInput && receivedInput.value) ? parseInt(receivedInput.value) : 0;
+                    
+                    if (code) {
+                        productData.push({ code, received, item });
+                        totalQuantity += received;
+                    }
+                });
+
+                if (totalQuantity > 0) {
+                    productData.forEach((product, index) => {
+                        let allocatedCost = 0;
+                        if (product.received > 0) {
+                            const proportion = product.received / totalQuantity;
+                            allocatedCost = Math.round(totalCost * proportion);
+                        }
+                        
+                        distributedTotal += allocatedCost;
+
+                        if (index === productData.length - 1 && product.received > 0) {
+                            const adjustment = totalCost - distributedTotal;
+                            allocatedCost += adjustment;
+                            distributedTotal += adjustment;
+                        }
+
+                        createDistributionItem(product.code, product.received, allocatedCost, false);
+                        product.item.setAttribute('data-shipping-cost', allocatedCost);
+                    });
+                }
+            } else if (method === 'equal') {
+                const productData = [];
+                productItems.forEach(item => {
+                    const codeInput = item.querySelector('.product-code');
+                    const receivedInput = item.querySelector('.received-qty');
+                    
+                    const codeWithName = (codeInput && codeInput.value) ? codeInput.value.trim() : '';
+                    const code = codeWithName.split(' - ')[0];
+                    const received = (receivedInput && receivedInput.value) ? parseInt(receivedInput.value) : 0;
+                    
+                    if (code) {
+                        productData.push({ code, received, item });
+                    }
+                });
+
+                if (productData.length > 0) {
+                    const costPerProduct = Math.round(totalCost / productData.length);
+                    productData.forEach((product, index) => {
+                        let allocatedCost = costPerProduct;
+                        if (index === productData.length - 1) {
+                            allocatedCost = totalCost - (distributedTotal);
+                        }
+                        distributedTotal += allocatedCost;
+                        createDistributionItem(product.code, product.received, allocatedCost, false);
+                        product.item.setAttribute('data-shipping-cost', allocatedCost);
+                    });
+                }
+            } else {
+                // Custom distribution
+                productItems.forEach(item => {
+                    const codeInput = item.querySelector('.product-code');
+                    const receivedInput = item.querySelector('.received-qty');
+                    
+                    const codeWithName = (codeInput && codeInput.value) ? codeInput.value.trim() : '';
+                    const code = codeWithName.split(' - ')[0];
+                    const received = (receivedInput && receivedInput.value) ? parseInt(receivedInput.value) : 0;
+                    
+                    if (code) {
+                        const currentCost = parseInt(item.getAttribute('data-shipping-cost')) || 0;
+                        createDistributionItem(code, received, currentCost, true);
+                        distributedTotal += currentCost;
+                    }
+                });
+            }
+
+            elements.totalDistributed.textContent = distributedTotal.toLocaleString();
+            elements.remainingCost.textContent = (totalCost - distributedTotal).toLocaleString();
+            
+            if (Math.abs(totalCost - distributedTotal) > 0.01) {
+                elements.remainingCost.className = 'font-medium text-red-600';
+            } else {
+                elements.remainingCost.className = 'font-medium text-green-600';
+            }
+        }
+
+        function createDistributionItem(code, quantity, cost, isEditable) {
+            const item = document.createElement('div');
+            item.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg';
+            
+            const costInput = isEditable ? 
+                `<input type="number" value="${cost}" class="shipping-cost-input w-24 px-2 py-1 border border-gray-300 rounded text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors" data-product-code="${code}">` :
+                `<span class="font-medium text-gray-900">${cost.toLocaleString()}</span>`;
+
+            item.innerHTML = `
+                <div class="flex items-center space-x-3">
+                    <span class="font-medium text-blue-600">${code}</span>
+                    <span class="text-sm text-gray-600">(${quantity.toLocaleString()} ชิ้น)</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    ${costInput}
+                    <span class="text-sm text-gray-600">บาท</span>
+                </div>
+            `;
+
+            elements.shippingDistribution.appendChild(item);
+
+            if (isEditable) {
+                const input = item.querySelector('.shipping-cost-input');
+                input.addEventListener('input', (e) => {
+                    const newCost = parseInt(e.target.value) || 0;
+                    const productCode = e.target.getAttribute('data-product-code');
+                    
+                    const productItem = Array.from(elements.productList.querySelectorAll('.border')).find(item => {
+                        const codeInput = item.querySelector('.product-code');
+                        return codeInput && codeInput.value.trim().startsWith(productCode);
+                    });
+                    
+                    if (productItem) {
+                        productItem.setAttribute('data-shipping-cost', newCost);
+                    }
+                    
+                    updateDistributionTotals();
+                });
+            }
+        }
+
+        function updateDistributionTotals() {
+            const inputs = elements.shippingDistribution.querySelectorAll('.shipping-cost-input');
+            let total = 0;
+            inputs.forEach(input => {
+                total += parseInt(input.value) || 0;
+            });
+            
+            const totalCost = parseFloat(elements.shippingCost.value) || 0;
+            elements.totalDistributed.textContent = total.toLocaleString();
+            elements.remainingCost.textContent = (totalCost - total).toLocaleString();
+            
+            if (Math.abs(totalCost - total) > 0.01) {
+                elements.remainingCost.className = 'font-medium text-red-600';
+            } else {
+                elements.remainingCost.className = 'font-medium text-green-600';
+            }
+        }
+
+        // Package Management
+        function savePackage() {
+            console.log('🔄 เริ่มบันทึกพัสดุ...');
+            
+            // ตรวจสอบรอบสินค้า
+            if (!currentRound) {
+                console.error('❌ ไม่มีรอบสินค้า');
+                showNotification('กรุณาเลือกรอบสินค้าก่อน', 'error');
+                return;
+            }
+            console.log('✅ รอบสินค้า:', currentRound);
+
+            // ตรวจสอบเลขพัสดุ
+            const packageNumber = elements.packageNumber.value.trim();
+            if (!packageNumber) {
+                console.error('❌ ไม่มีเลขพัสดุ');
+                showNotification('กรุณากรอกเลขพัสดุ', 'error');
+                elements.packageNumber.focus();
+                return;
+            }
+            console.log('✅ เลขพัสดุ:', packageNumber);
+
+            // ตรวจสอบรายการสินค้า
+            const productItems = elements.productList.querySelectorAll('.border');
+            console.log('📦 จำนวนสินค้าในฟอร์ม:', productItems.length);
+            
+            if (productItems.length === 0) {
+                console.error('❌ ไม่มีสินค้า');
+                showNotification('กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ', 'error');
+                return;
+            }
+
+            const products = [];
+            let hasValidProduct = false;
+            let validationErrors = [];
+
+            productItems.forEach((item, index) => {
+                console.log(`🔍 ตรวจสอบสินค้าที่ ${index + 1}:`);
+                
+                const codeInput = item.querySelector('.product-code');
+                const optionSelect = item.querySelector('.product-option');
+                const receivedInput = item.querySelector('.received-qty');
+                const orderedInput = item.querySelector('.ordered-qty');
+                
+                const codeWithName = (codeInput && codeInput.value) ? codeInput.value.trim() : '';
+                const code = codeWithName ? codeWithName.split(' - ')[0] : '';
+                const name = codeWithName.includes(' - ') ? codeWithName.split(' - ')[1] : getProductName(code);
+                const optionText = (optionSelect && optionSelect.options[optionSelect.selectedIndex]) ? optionSelect.options[optionSelect.selectedIndex].text : '';
+                const received = (receivedInput && receivedInput.value) ? parseInt(receivedInput.value) : 0;
+                const ordered = (orderedInput && orderedInput.value) ? parseInt(orderedInput.value) : 0;
+                
+                console.log(`  - รหัส: "${code}"`);
+                console.log(`  - ชื่อ: "${name}"`);
+                console.log(`  - ตัวเลือก: "${optionText}"`);
+                console.log(`  - ได้: ${received}`);
+                console.log(`  - สั่ง: ${ordered}`);
+                
+                // ข้ามกล่องที่ว่างเปล่า (ไม่มีรหัสสินค้าและไม่มีตัวเลือก)
+                if (!code && !optionText && received === 0) {
+                    console.log(`  ⏭️ ข้ามกล่องว่าง`);
+                    return;
+                }
+                
+                if (!code) {
+                    validationErrors.push(`สินค้าที่ ${index + 1}: ไม่มีรหัสสินค้า`);
+                    return;
+                }
+                
+                if (!optionText) {
+                    validationErrors.push(`สินค้าที่ ${index + 1} (${code}): ไม่ได้เลือกตัวเลือก/รสชาติ`);
+                    return;
+                }
+                
+                if (received < 0) {
+                    validationErrors.push(`สินค้าที่ ${index + 1} (${code}): จำนวนที่ได้ต้องไม่ติดลบ`);
+                    return;
+                }
+
+                hasValidProduct = true;
+                const missing = Math.max(0, ordered - received);
+                const excess = Math.max(0, received - ordered);
+                const shippingCost = parseInt(item.getAttribute('data-shipping-cost')) || 0;
+                
+                const productData = {
+                    code,
+                    name,
+                    option: optionText || '-',
+                    received,
+                    ordered,
+                    missing,
+                    excess,
+                    shippingCost
+                };
+                
+                products.push(productData);
+                console.log(`✅ เพิ่มสินค้า:`, productData);
+            });
+
+            // แสดงข้อผิดพลาดถ้ามี
+            if (validationErrors.length > 0) {
+                console.error('❌ พบข้อผิดพลาด:', validationErrors);
+                showNotification('พบข้อผิดพลาด:\n' + validationErrors.join('\n'), 'error');
+                return;
+            }
+
+            if (!hasValidProduct) {
+                console.error('❌ ไม่มีสินค้าที่ถูกต้อง');
+                showNotification('กรุณากรอกข้อมูลสินค้าให้ครบถ้วน', 'error');
+                return;
+            }
+
+            // ตรวจสอบพัสดุซ้ำ
+            if (allRoundsData[currentRound] && allRoundsData[currentRound].packages) {
+                const existingPackage = allRoundsData[currentRound].packages.find(pkg => pkg.packageNumber === packageNumber);
+                if (existingPackage) {
+                    if (!confirm(`พัสดุ "${packageNumber}" มีอยู่แล้ว\nต้องการแทนที่ข้อมูลเดิมหรือไม่?`)) {
+                        return;
+                    }
+                    // ลบพัสดุเดิม
+                    allRoundsData[currentRound].packages = allRoundsData[currentRound].packages.filter(pkg => pkg.packageNumber !== packageNumber);
+                    console.log('🔄 แทนที่พัสดุเดิม');
+                }
+            }
+
+            // สร้างข้อมูลพัสดุ
+            const packageData = {
+                id: Date.now(),
+                packageNumber,
+                products,
+                shippingCost: parseFloat(elements.shippingCost.value) || 0,
+                timestamp: new Date().toISOString(),
+                dateCreated: new Date().toLocaleDateString('th-TH', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                })
+            };
+
+            console.log('📦 ข้อมูลพัสดุที่จะบันทึก:', packageData);
+
+            // สร้างรอบใหม่ถ้าไม่มี
+            if (!allRoundsData[currentRound]) {
+                allRoundsData[currentRound] = {
+                    name: currentRound,
+                    created: new Date().toISOString(),
+                    packages: []
+                };
+                console.log('🆕 สร้างรอบใหม่:', currentRound);
+            }
+
+            // บันทึกพัสดุ
+            try {
+                allRoundsData[currentRound].packages.push(packageData);
+                saveData();
+                updateUI();
+                
+                console.log('✅ บันทึกพัสดุสำเร็จ');
+                console.log('📊 จำนวนพัสดุในรอบ:', allRoundsData[currentRound].packages.length);
+                
+                showNotification(`✅ บันทึกพัสดุ "${packageNumber}" เรียบร้อยแล้ว!\n📦 ${products.length} รายการสินค้า\n💰 ค่านำเข้า ${packageData.shippingCost.toLocaleString()} บาท`, 'success');
+                
+                // ล้างฟอร์มและเพิ่มสินค้าใหม่
+                setTimeout(() => {
+                    clearForm();
+                    addProductItem();
+                    elements.packageNumber.focus();
+                }, 2000);
+                
+            } catch (error) {
+                console.error('❌ เกิดข้อผิดพลาดในการบันทึก:', error);
+                showNotification('เกิดข้อผิดพลาดในการบันทึก: ' + error.message, 'error');
+            }
+        }
+
+        function clearForm() {
+            elements.packageNumber.value = '';
+            elements.shippingCost.value = '';
+            elements.productList.innerHTML = `
+                <div id="noProductsMessage" class="text-center py-8 text-gray-500">
+                    <i class="fas fa-plus-circle text-4xl mb-3 text-gray-300"></i>
+                    <p class="text-lg font-medium mb-2">ยังไม่มีสินค้าในพัสดุ</p>
+                    <p class="text-sm">คลิกปุ่ม "เพิ่มสินค้า" เพื่อเริ่มเพิ่มรายการสินค้า</p>
+                </div>
+            `;
+            elements.shippingDistribution.innerHTML = '';
+            elements.totalDistributed.textContent = '0';
+            elements.remainingCost.textContent = '0';
+        }
+
+        function getProductName(code) {
+            if (sheetsData.length > 0) {
+                const product = sheetsData.find(p => p.code === code);
+                return product ? product.name : 'สินค้าไม่ระบุ';
+            }
+            return 'สินค้าไม่ระบุ';
+        }
+
+        // Copy Summary Data Function - ปรับปรุงให้แสดงตารางเหมือนในหน้าจอ
+        function copySummaryData() {
+            const selectedRound = elements.summaryRoundSelect.value;
+            const sheetName = elements.summarySheetInput.value.trim();
+            
+            // ถ้ามีการโหลดข้อมูลจากชีท ให้ใช้ข้อมูลจากชีท
+            if (sheetName && summarySheetData.length > 0) {
+                copySummaryFromSheet();
+                return;
+            }
+            
+            // ถ้าไม่มี ให้ใช้ข้อมูลจากรอบสินค้า
+            if (!selectedRound || !allRoundsData[selectedRound]) {
+                showNotification('กรุณาเลือกรอบสินค้าหรือโหลดข้อมูลจากชีทก่อน', 'error');
+                return;
+            }
+
+            const roundData = allRoundsData[selectedRound];
+            const packages = roundData.packages || [];
+            
+            if (packages.length === 0) {
+                showNotification('ไม่มีข้อมูลสำหรับคัดลอก', 'error');
+                return;
+            }
+
+            // สร้างข้อมูลในรูปแบบตารางเหมือนที่แสดงในหน้าจอ
+            let tableData = [];
+            
+            // Header rows - 2 ระดับเหมือนในหน้าจอ
+            tableData.push([
+                'ข้อมูลสินค้า', '', '', 'พัสดุ', 'จำนวน', '', '', 'ค่าใช้จ่าย', 'การจัดการ', ''
+            ]);
+            
+            tableData.push([
+                'รหัสสินค้า',
+                'ชื่อสินค้า', 
+                'ตัวเลือก',
+                'เลขพัสดุ',
+                'สั่ง (ฐานข้อมูล)',
+                'ได้',
+                'ต่าง',
+                'ค่านำเข้า (บาท)',
+                'สถานะ',
+                'จัดการ'
+            ]);
+
+            // สร้างรายการสินค้าและจัดกลุ่มตาม รหัสสินค้า + ชื่อสินค้า + ตัวเลือก
+            const productGroups = {};
+            
+            packages.forEach(pkg => {
+                pkg.products.forEach((product) => {
+                    const key = `${product.code}|${product.name}|${product.option}`;
+                    
+                    if (!productGroups[key]) {
+                        productGroups[key] = {
+                            code: product.code || '',
+                            name: product.name || '',
+                            option: product.option || '-',
+                            ordered: product.ordered || 0,
+                            received: 0,
+                            shippingCost: 0,
+                            packageNumbers: []
+                        };
+                    }
+                    
+                    productGroups[key].received += product.received || 0;
+                    productGroups[key].shippingCost += product.shippingCost || 0;
+                    productGroups[key].packageNumbers.push(pkg.packageNumber);
+                });
+            });
+
+            // จัดกลุ่มตามรหัสสินค้าเพื่อสร้างหัวข้อหลัก
+            const codeGroups = {};
+            Object.values(productGroups).forEach(product => {
+                if (!codeGroups[product.code]) {
+                    codeGroups[product.code] = {
+                        code: product.code,
+                        name: product.name,
+                        products: [],
+                        totalOrdered: 0,
+                        totalReceived: 0,
+                        totalShippingCost: 0
+                    };
+                }
+                codeGroups[product.code].products.push(product);
+                codeGroups[product.code].totalOrdered += product.ordered;
+                codeGroups[product.code].totalReceived += product.received;
+                codeGroups[product.code].totalShippingCost += product.shippingCost;
+            });
+
+            // เรียงลำดับตามรหัสสินค้า
+            const sortedCodes = Object.keys(codeGroups).sort();
+
+            // แสดงรายการสินค้าแบบจัดกลุ่ม
+            sortedCodes.forEach(code => {
+                const codeGroup = codeGroups[code];
+                const hasMultipleOptions = codeGroup.products.length > 1;
+                
+                // เรียงลำดับตัวเลือกภายในกลุ่ม
+                codeGroup.products.sort((a, b) => a.option.localeCompare(b.option));
+                
+                codeGroup.products.forEach((product, optionIndex) => {
+                    const missing = Math.max(0, product.ordered - product.received);
+                    const excess = Math.max(0, product.received - product.ordered);
+                    
+                    let status = 'ครบ';
+                    let diffText = '0';
+                    
+                    if (missing > 0) {
+                        status = 'ขาด';
+                        diffText = `-${missing}`;
+                    } else if (excess > 0) {
+                        status = 'เกิน';
+                        diffText = `+${excess}`;
+                    }
+
+                    // แสดงเลขพัสดุหลายตัว (ถ้ามี)
+                    const packageDisplay = [...new Set(product.packageNumbers)].join(', ');
+                    
+                    // กำหนดการแสดงรหัสสินค้าและชื่อสินค้า
+                    let codeDisplay = product.code;
+                    let nameDisplay = product.name;
+                    let optionDisplay = product.option;
+                    
+                    if (hasMultipleOptions) {
+                        if (optionIndex === 0) {
+                            // หัวข้อหลัก - แสดงรหัสและชื่อสินค้าเต็ม
+                            codeDisplay = `${product.code} (หลัก)`;
+                            nameDisplay = `${product.name} [รวม ${codeGroup.products.length} ตัวเลือก]`;
+                            optionDisplay = `↳ ${product.option}`;
+                        } else {
+                            // หัวข้อย่อย - แสดงเฉพาะตัวเลือก
+                            codeDisplay = `└─ ${product.code}`;
+                            nameDisplay = `ต่อจากข้างบน`;
+                            optionDisplay = `↳ ${product.option}`;
+                        }
+                    }
+                    
+                    tableData.push([
+                        codeDisplay,
+                        nameDisplay,
+                        optionDisplay,
+                        packageDisplay,
+                        product.ordered.toString(),
+                        product.received.toString(),
+                        diffText,
+                        product.shippingCost.toString(),
+                        status,
+                        'แก้ไข/ลบ'
+                    ]);
+                });
+                
+                // เพิ่มแถวสรุปรวมสำหรับกลุ่มที่มีหลายตัวเลือก
+                if (hasMultipleOptions) {
+                    const totalMissing = Math.max(0, codeGroup.totalOrdered - codeGroup.totalReceived);
+                    const totalExcess = Math.max(0, codeGroup.totalReceived - codeGroup.totalOrdered);
+                    let totalDiffText = '0';
+                    
+                    if (totalMissing > 0) {
+                        totalDiffText = `-${totalMissing}`;
+                    } else if (totalExcess > 0) {
+                        totalDiffText = `+${totalExcess}`;
+                    }
+                    
+                    let totalStatus = 'ครบ';
+                    if (totalMissing > 0) {
+                        totalStatus = 'ขาด';
+                    } else if (totalExcess > 0) {
+                        totalStatus = 'เกิน';
+                    }
+                    
+                    tableData.push([
+                        `📊 รวม ${codeGroup.code}`,
+                        `${codeGroup.products.length} ตัวเลือก`,
+                        'ทั้งหมด',
+                        '-',
+                        codeGroup.totalOrdered.toString(),
+                        codeGroup.totalReceived.toString(),
+                        totalDiffText,
+                        codeGroup.totalShippingCost.toString(),
+                        totalStatus,
+                        'สรุป'
+                    ]);
+                }
+            });
+
+            // แปลงเป็น TSV (Tab-separated values) สำหรับ Google Sheets
+            const tsvContent = tableData.map(row => row.join('\t')).join('\n');
+            
+            // เพิ่มข้อมูลสรุปด้านล่าง
+            const totalPackages = packages.length;
+            let totalOrdered = 0, totalReceived = 0, totalCost = 0;
+            
+            packages.forEach(pkg => {
+                totalCost += pkg.shippingCost || 0;
+                pkg.products.forEach(product => {
+                    totalOrdered += product.ordered || 0;
+                    totalReceived += product.received || 0;
+                });
+            });
+
+            const summaryData = [
+                '',
+                `รายงานสรุป - รอบ: ${selectedRound}`,
+                `สร้างเมื่อ: ${new Date().toLocaleString('th-TH')}`,
+                '',
+                'สรุปรวม:',
+                `พัสดุทั้งหมด: ${totalPackages} พัสดุ`,
+                `รายการสินค้าทั้งหมด: ${Object.keys(productGroups).length} รายการ`,
+                `สินค้าที่สั่ง: ${totalOrdered.toLocaleString()} ชิ้น`,
+                `สินค้าที่ได้: ${totalReceived.toLocaleString()} ชิ้น`,
+                `ค่านำเข้ารวม: ${totalCost.toLocaleString()} บาท`
+            ];
+
+            const finalContent = tsvContent + '\n\n' + summaryData.join('\n');
+
+            // Copy to clipboard
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(finalContent).then(() => {
+                    showNotification('คัดลอกตารางสรุปเรียบร้อย! วางใน Google Sheets ได้เลย (รูปแบบเหมือนในหน้าจอ)', 'success');
+                }).catch(() => {
+                    fallbackCopyTextToClipboard(finalContent);
+                });
+            } else {
+                fallbackCopyTextToClipboard(finalContent);
+            }
+        }
+
+        // Copy Summary from Sheet Data
+        function copySummaryFromSheet() {
+            if (summarySheetData.length === 0) {
+                showNotification('ไม่มีข้อมูลจากชีทสำหรับคัดลอก', 'error');
+                return;
+            }
+
+            // สร้างข้อมูลในรูปแบบตารางเหมือนที่แสดงในหน้าจอ
+            let tableData = [];
+            
+            // Header rows - 2 ระดับเหมือนในหน้าจอ
+            tableData.push([
+                'ข้อมูลสินค้า', '', '', 'พัสดุ', 'จำนวน', '', '', 'ค่าใช้จ่าย', 'การจัดการ', ''
+            ]);
+            
+            tableData.push([
+                'รหัสสินค้า',
+                'ชื่อสินค้า', 
+                'ตัวเลือก',
+                'เลขพัสดุ',
+                'สั่ง (ฐานข้อมูล)',
+                'ได้',
+                'ต่าง',
+                'ค่านำเข้า (บาท)',
+                'สถานะ',
+                'จัดการ'
+            ]);
+
+            // Data rows จากชีท
+            summarySheetData.forEach((product) => {
+                const ordered = product.quantity || 0;
+                const received = 0; // ข้อมูลจากชีทไม่มีจำนวนที่ได้
+                const missing = Math.max(0, ordered - received);
+                
+                let status = 'ขาด';
+                let diffText = `-${missing}`;
+                
+                tableData.push([
+                    product.code || '',
+                    product.name || '',
+                    product.option || '',
+                    '-',
+                    ordered.toString(),
+                    received.toString(),
+                    diffText,
+                    '0',
+                    status,
+                    '-'
+                ]);
+            });
+
+            // แปลงเป็น TSV (Tab-separated values) สำหรับ Google Sheets
+            const tsvContent = tableData.map(row => row.join('\t')).join('\n');
+            
+            // เพิ่มข้อมูลสรุปด้านล่าง
+            const sheetName = elements.summarySheetInput.value.trim();
+            const totalOrdered = summarySheetData.reduce((sum, product) => sum + (product.quantity || 0), 0);
+
+            const summaryData = [
+                '',
+                `รายงานสรุป - ชีท: ${sheetName}`,
+                `สร้างเมื่อ: ${new Date().toLocaleString('th-TH')}`,
+                '',
+                'สรุปรวม:',
+                `รายการสินค้าทั้งหมด: ${summarySheetData.length} รายการ`,
+                `สินค้าที่สั่ง: ${totalOrdered.toLocaleString()} ชิ้น`,
+                `สินค้าที่ได้: 0 ชิ้น`,
+                `สินค้าที่ขาด: ${totalOrdered.toLocaleString()} ชิ้น`
+            ];
+
+            const finalContent = tsvContent + '\n\n' + summaryData.join('\n');
+
+            // Copy to clipboard
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(finalContent).then(() => {
+                    showNotification('คัดลอกตารางสรุปจากชีทเรียบร้อย! วางใน Google Sheets ได้เลย', 'success');
+                }).catch(() => {
+                    fallbackCopyTextToClipboard(finalContent);
+                });
+            } else {
+                fallbackCopyTextToClipboard(finalContent);
+            }
+        }
+
+        // Fallback copy function
+        function fallbackCopyTextToClipboard(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                showNotification('คัดลอกตารางสรุปเรียบร้อย! วางใน Google Sheets ได้เลย', 'success');
+            } catch (err) {
+                showNotification('ไม่สามารถคัดลอกได้ กรุณาคัดลอกด้วยตนเอง', 'error');
+                console.error('Fallback copy failed:', err);
+            }
+            
+            document.body.removeChild(textArea);
+        }
+
+        // Summary Section
+        function showSummarySection() {
+            elements.packageSection.classList.add('hidden');
+            elements.summarySection.classList.remove('hidden');
+            elements.roundAlert.classList.add('hidden');
+            elements.sheetAlert.classList.add('hidden');
+            
+            updateSummaryRoundSelect();
+            
+            // ถ้ามีรอบปัจจุบัน ให้เลือกอัตโนมัติ
+            if (currentRound) {
+                elements.summaryRoundSelect.value = currentRound;
+                updateSummaryTable();
+            }
+        }
+
+        function showPackageSection() {
+            elements.summarySection.classList.add('hidden');
+            elements.packageSection.classList.remove('hidden');
+            updateUI();
+        }
+
+        function updateSummaryTable() {
+            const selectedRound = elements.summaryRoundSelect.value;
+            
+            // ถ้ามีข้อมูลจากชีท ให้แสดงข้อมูลจากชีท
+            if (summarySheetData.length > 0) {
+                updateSummaryTableFromSheet();
+                return;
+            }
+            
+            // ถ้าไม่มี ให้แสดงข้อมูลจากรอบสินค้า
+            if (!selectedRound || !allRoundsData[selectedRound]) {
+                elements.summaryTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="py-8 px-4 text-center text-gray-500">
+                            <i class="fas fa-inbox text-4xl mb-2 block"></i>
+                            กรุณาเลือกรอบสินค้าหรือโหลดข้อมูลจากชีท
+                        </td>
+                    </tr>
+                `;
+                updateSummaryStats(0, 0, 0, 0);
+                return;
+            }
+
+            const roundData = allRoundsData[selectedRound];
+            const packages = roundData.packages || [];
+            
+            if (packages.length === 0) {
+                elements.summaryTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="py-8 px-4 text-center text-gray-500">
+                            <i class="fas fa-inbox text-4xl mb-2 block"></i>
+                            ไม่มีพัสดุในรอบนี้
+                        </td>
+                    </tr>
+                `;
+                updateSummaryStats(0, 0, 0, 0);
+                return;
+            }
+
+            // สร้างรายการสินค้าและจัดกลุ่มตาม รหัสสินค้า + ชื่อสินค้า + ตัวเลือก
+            const productGroups = {};
+            let totalCost = 0;
+            
+            packages.forEach(pkg => {
+                totalCost += pkg.shippingCost || 0;
+                pkg.products.forEach((product) => {
+                    const key = `${product.code}|${product.name}|${product.option}`;
+                    
+                    if (!productGroups[key]) {
+                        productGroups[key] = {
+                            code: product.code || '',
+                            name: product.name || '',
+                            option: product.option || '-',
+                            ordered: product.ordered || 0,
+                            received: 0,
+                            shippingCost: 0,
+                            packageNumbers: []
+                        };
+                    }
+                    
+                    productGroups[key].received += product.received || 0;
+                    productGroups[key].shippingCost += product.shippingCost || 0;
+                    productGroups[key].packageNumbers.push(pkg.packageNumber);
+                });
+            });
+
+            // จัดกลุ่มตามรหัสสินค้าเพื่อสร้างหัวข้อหลัก
+            const codeGroups = {};
+            Object.values(productGroups).forEach(product => {
+                if (!codeGroups[product.code]) {
+                    codeGroups[product.code] = {
+                        code: product.code,
+                        name: product.name,
+                        products: [],
+                        totalOrdered: 0,
+                        totalReceived: 0,
+                        totalShippingCost: 0
+                    };
+                }
+                codeGroups[product.code].products.push(product);
+                codeGroups[product.code].totalOrdered += product.ordered;
+                codeGroups[product.code].totalReceived += product.received;
+                codeGroups[product.code].totalShippingCost += product.shippingCost;
+            });
+
+            const statusFilter = elements.statusFilter.value;
+            let completeItems = 0, missingItems = 0, excessItems = 0;
+            const summaryRows = [];
+
+            // เรียงลำดับตามรหัสสินค้า
+            const sortedCodes = Object.keys(codeGroups).sort();
+
+            sortedCodes.forEach(code => {
+                const codeGroup = codeGroups[code];
+                const hasMultipleOptions = codeGroup.products.length > 1;
+                
+                // เรียงลำดับตัวเลือกภายในกลุ่ม
+                codeGroup.products.sort((a, b) => a.option.localeCompare(b.option));
+                
+                codeGroup.products.forEach((product, optionIndex) => {
+                    const missing = Math.max(0, product.ordered - product.received);
+                    const excess = Math.max(0, product.received - product.ordered);
+                    
+                    let status = 'ครบ';
+                    let statusValue = 'complete';
+                    let diffText = '0';
+                    let statusClass = 'bg-green-100 text-green-600';
+                    let diffClass = 'text-gray-600';
+                    
+                    if (missing > 0) {
+                        status = 'ขาด';
+                        statusValue = 'missing';
+                        diffText = `-${missing}`;
+                        statusClass = 'bg-yellow-100 text-yellow-600';
+                        diffClass = 'text-red-600 font-medium';
+                        missingItems++;
+                    } else if (excess > 0) {
+                        status = 'เกิน';
+                        statusValue = 'excess';
+                        diffText = `+${excess}`;
+                        statusClass = 'bg-blue-100 text-blue-600';
+                        diffClass = 'text-blue-600 font-medium';
+                        excessItems++;
+                    } else {
+                        completeItems++;
+                    }
+
+                    if (statusFilter === 'all' || statusFilter === statusValue) {
+                        const row = document.createElement('tr');
+                        
+                        // แสดงเลขพัสดุหลายตัว (ถ้ามี)
+                        const packageDisplay = [...new Set(product.packageNumbers)].join(', ');
+                        
+                        // กำหนดการแสดงรหัสสินค้าและชื่อสินค้า
+                        let codeDisplay = product.code;
+                        let nameDisplay = product.name;
+                        let optionDisplay = product.option;
+                        let rowClass = 'border-b border-gray-200 hover:bg-gray-50 transition-colors';
+                        
+                        if (hasMultipleOptions) {
+                            if (optionIndex === 0) {
+                                // หัวข้อหลัก - แสดงรหัสและชื่อสินค้าเต็ม
+                                codeDisplay = `📦 ${product.code}`;
+                                nameDisplay = `${product.name} [${codeGroup.products.length} ตัวเลือก]`;
+                                optionDisplay = `└─ ${product.option}`;
+                                rowClass = 'border-b border-gray-200 hover:bg-blue-25 transition-colors bg-blue-50';
+                            } else {
+                                // หัวข้อย่อย - แสดงเฉพาะตัวเลือก
+                                codeDisplay = `   └─ ${product.code}`;
+                                nameDisplay = `ต่อจากข้างบน`;
+                                optionDisplay = `└─ ${product.option}`;
+                                rowClass = 'border-b border-gray-100 hover:bg-gray-25 transition-colors';
+                            }
+                        }
+                        
+                        row.className = rowClass;
+                        
+                        row.innerHTML = `
+                            <td class="py-3 px-4 border-r border-gray-100 ${hasMultipleOptions && optionIndex === 0 ? 'font-semibold text-blue-800' : ''}">${codeDisplay}</td>
+                            <td class="py-3 px-4 border-r border-gray-100 ${hasMultipleOptions && optionIndex === 0 ? 'font-semibold text-blue-800' : ''}">${nameDisplay}</td>
+                            <td class="py-3 px-4 text-gray-600 border-r border-gray-100 ${hasMultipleOptions ? 'text-sm' : ''}">${optionDisplay}</td>
+                            <td class="py-3 px-4 font-medium text-blue-600 text-sm border-r border-gray-100">${packageDisplay}</td>
+                            <td class="py-3 px-4 text-center font-medium text-gray-900 border-r border-gray-100">${product.ordered.toLocaleString()}</td>
+                            <td class="py-3 px-4 text-center font-medium text-gray-900 border-r border-gray-100">${product.received.toLocaleString()}</td>
+                            <td class="py-3 px-4 text-center font-medium ${diffClass} border-r border-gray-100">${diffText}</td>
+                            <td class="py-3 px-4 text-center font-medium text-green-600 border-r border-gray-100">${product.shippingCost.toLocaleString()}</td>
+                            <td class="py-3 px-4 text-center border-r border-gray-100">
+                                <span class="px-2 py-1 rounded-full text-xs font-medium ${statusClass}">
+                                    ${status}
+                                </span>
+                            </td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="editProduct('${selectedRound}', '${product.code}', '${product.option.replace(/'/g, "\\'")}', '${packageDisplay}')" class="text-blue-600 hover:text-blue-800 text-sm">
+                                    <i class="fas fa-edit mr-1"></i>แก้ไข
+                                </button>
+                            </td>
+                        `;
+                        
+                        summaryRows.push(row);
+                    }
+                });
+                
+                // เพิ่มแถวสรุปรวมสำหรับกลุ่มที่มีหลายตัวเลือก
+                if (hasMultipleOptions && (statusFilter === 'all' || 
+                    (statusFilter === 'complete' && codeGroup.totalReceived === codeGroup.totalOrdered) ||
+                    (statusFilter === 'missing' && codeGroup.totalReceived < codeGroup.totalOrdered) ||
+                    (statusFilter === 'excess' && codeGroup.totalReceived > codeGroup.totalOrdered))) {
+                    
+                    const totalMissing = Math.max(0, codeGroup.totalOrdered - codeGroup.totalReceived);
+                    const totalExcess = Math.max(0, codeGroup.totalReceived - codeGroup.totalOrdered);
+                    let totalStatus = 'ครบ';
+                    let totalStatusClass = 'bg-green-100 text-green-600';
+                    let totalDiffText = '0';
+                    let totalDiffClass = 'text-gray-600';
+                    
+                    if (totalMissing > 0) {
+                        totalStatus = 'ขาด';
+                        totalStatusClass = 'bg-yellow-100 text-yellow-600';
+                        totalDiffText = `-${totalMissing}`;
+                        totalDiffClass = 'text-red-600 font-medium';
+                    } else if (totalExcess > 0) {
+                        totalStatus = 'เกิน';
+                        totalStatusClass = 'bg-blue-100 text-blue-600';
+                        totalDiffText = `+${totalExcess}`;
+                        totalDiffClass = 'text-blue-600 font-medium';
+                    }
+                    
+                    const summaryRow = document.createElement('tr');
+                    summaryRow.className = 'border-b-2 border-blue-300 bg-blue-100 hover:bg-blue-150 transition-colors';
+                    
+                    summaryRow.innerHTML = `
+                        <td class="py-3 px-4 border-r border-gray-100 font-bold text-blue-900">📊 รวม ${codeGroup.code}</td>
+                        <td class="py-3 px-4 border-r border-gray-100 font-bold text-blue-900">${codeGroup.products.length} ตัวเลือก</td>
+                        <td class="py-3 px-4 text-blue-700 border-r border-gray-100 font-medium">ทั้งหมด</td>
+                        <td class="py-3 px-4 font-medium text-blue-600 text-sm border-r border-gray-100">-</td>
+                        <td class="py-3 px-4 text-center font-bold text-blue-900 border-r border-gray-100">${codeGroup.totalOrdered.toLocaleString()}</td>
+                        <td class="py-3 px-4 text-center font-bold text-blue-900 border-r border-gray-100">${codeGroup.totalReceived.toLocaleString()}</td>
+                        <td class="py-3 px-4 text-center font-bold ${totalDiffClass} border-r border-gray-100">${totalDiffText}</td>
+                        <td class="py-3 px-4 text-center font-bold text-green-700 border-r border-gray-100">${codeGroup.totalShippingCost.toLocaleString()}</td>
+                        <td class="py-3 px-4 text-center border-r border-gray-100">
+                            <span class="px-2 py-1 rounded-full text-xs font-bold ${totalStatusClass}">
+                                ${totalStatus}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 text-center text-blue-700 font-medium">สรุป</td>
+                    `;
+                    
+                    summaryRows.push(summaryRow);
+                }
+            });
+
+            elements.summaryTableBody.innerHTML = '';
+            summaryRows.forEach(row => {
+                elements.summaryTableBody.appendChild(row);
+            });
+
+            if (summaryRows.length === 0) {
+                elements.summaryTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="py-8 px-4 text-center text-gray-500">
+                            <i class="fas fa-filter text-4xl mb-2 block"></i>
+                            ไม่มีข้อมูลที่ตรงกับตัวกรองที่เลือก
+                        </td>
+                    </tr>
+                `;
+            }
+
+            updateSummaryStats(packages.length, completeItems, missingItems, totalCost);
+        }
+
+        function updateSummaryStats(totalPackages, completeItems, missingItems, totalCost) {
+            elements.totalPackages.textContent = totalPackages.toLocaleString();
+            elements.completeItems.textContent = completeItems.toLocaleString();
+            elements.missingItems.textContent = missingItems.toLocaleString();
+            elements.totalCost.textContent = totalCost.toLocaleString();
+        }
+
+
+
+        // Export and Save Functions
+        function exportData() {
+            const selectedRound = elements.summaryRoundSelect.value;
+            if (!selectedRound || !allRoundsData[selectedRound]) {
+                showNotification('กรุณาเลือกรอบสินค้าก่อน', 'error');
+                return;
+            }
+
+            const roundData = allRoundsData[selectedRound];
+            const dataStr = JSON.stringify(roundData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = `สรุปการนำเข้า_${selectedRound}_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            
+            showNotification('ส่งออกข้อมูลเรียบร้อยแล้ว', 'success');
+        }
+
+        async function saveToSheets() {
+            const selectedRound = elements.summaryRoundSelect.value;
+            if (!selectedRound || !allRoundsData[selectedRound]) {
+                showNotification('กรุณาเลือกรอบสินค้าก่อน', 'error');
+                return;
+            }
+
+            elements.saveToSheetsBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>กำลังบันทึก...';
+            elements.saveToSheetsBtn.disabled = true;
+
+            try {
+                const roundData = allRoundsData[selectedRound];
+                const summaryData = prepareSummaryForSheets(roundData);
+                
+                const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'saveSummary',
+                        sheetName: CONFIG.SUMMARY_SHEET_NAME,
+                        data: summaryData,
+                        roundName: selectedRound
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    showNotification('บันทึกข้อมูลไป Google Sheets เรียบร้อยแล้ว', 'success');
+                } else {
+                    throw new Error(result.error || 'เกิดข้อผิดพลาดในการบันทึก');
+                }
+            } catch (error) {
+                console.error('Error saving to sheets:', error);
+                showNotification('ไม่สามารถบันทึกไป Google Sheets ได้: ' + error.message, 'error');
+            } finally {
+                elements.saveToSheetsBtn.innerHTML = '<i class="fas fa-cloud-upload mr-1"></i>บันทึกไป Sheets';
+                elements.saveToSheetsBtn.disabled = false;
+            }
+        }
+
+        function prepareSummaryForSheets(roundData) {
+            const packages = roundData.packages || [];
+            const summaryData = [];
+            
+            // Header
+            summaryData.push([
+                'รหัสสินค้า', 'ชื่อสินค้า', 'ตัวเลือก', 'เลขพัสดุ', 
+                'จำนวนที่สั่ง', 'จำนวนที่ได้', 'ขาด/เกิน', 'ค่านำเข้า', 'สถานะ'
+            ]);
+
+            // สร้างรายการสินค้าและจัดกลุ่ม
+            const productGroups = {};
+            
+            packages.forEach(pkg => {
+                pkg.products.forEach((product) => {
+                    const key = `${product.code}|${product.name}|${product.option}`;
+                    
+                    if (!productGroups[key]) {
+                        productGroups[key] = {
+                            code: product.code || '',
+                            name: product.name || '',
+                            option: product.option || '-',
+                            ordered: product.ordered || 0,
+                            received: 0,
+                            shippingCost: 0,
+                            packageNumbers: []
+                        };
+                    }
+                    
+                    productGroups[key].received += product.received || 0;
+                    productGroups[key].shippingCost += product.shippingCost || 0;
+                    productGroups[key].packageNumbers.push(pkg.packageNumber);
+                });
+            });
+
+            // Data rows
+            Object.values(productGroups).forEach((product) => {
+                const missing = Math.max(0, product.ordered - product.received);
+                const excess = Math.max(0, product.received - product.ordered);
+                
+                let status = 'ครบ';
+                let diffText = '0';
+                
+                if (missing > 0) {
+                    status = 'ขาด';
+                    diffText = `-${missing}`;
+                } else if (excess > 0) {
+                    status = 'เกิน';
+                    diffText = `+${excess}`;
+                }
+
+                const packageDisplay = [...new Set(product.packageNumbers)].join(', ');
+                
+                summaryData.push([
+                    product.code,
+                    product.name,
+                    product.option,
+                    packageDisplay,
+                    product.ordered,
+                    product.received,
+                    diffText,
+                    product.shippingCost,
+                    status
+                ]);
+            });
+
+            return summaryData;
+        }
+
+        // Utility Functions
+        function showNotification(message, type = 'info') {
+            // สร้าง notification element
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-md transition-all duration-300 transform translate-x-full`;
+            
+            // กำหนดสีตาม type
+            const colors = {
+                success: 'bg-green-500 text-white',
+                error: 'bg-red-500 text-white',
+                warning: 'bg-yellow-500 text-white',
+                info: 'bg-blue-500 text-white'
+            };
+            
+            notification.className += ` ${colors[type] || colors.info}`;
+            
+            // กำหนด icon ตาม type
+            const icons = {
+                success: 'fas fa-check-circle',
+                error: 'fas fa-exclamation-circle',
+                warning: 'fas fa-exclamation-triangle',
+                info: 'fas fa-info-circle'
+            };
+            
+            notification.innerHTML = `
+                <div class="flex items-start space-x-3">
+                    <i class="${icons[type] || icons.info} text-lg mt-0.5"></i>
+                    <div class="flex-1">
+                        <p class="font-medium whitespace-pre-line">${message}</p>
+                    </div>
+                    <button class="text-white hover:text-gray-200 transition-colors ml-2" onclick="this.parentElement.parentElement.remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // แสดง notification
+            setTimeout(() => {
+                notification.classList.remove('translate-x-full');
+            }, 100);
+            
+            // ซ่อน notification อัตโนมัติ
+            setTimeout(() => {
+                notification.classList.add('translate-x-full');
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        notification.remove();
+                    }
+                }, 300);
+            }, type === 'error' ? 8000 : 5000);
+            
+            console.log(`📢 ${type.toUpperCase()}: ${message}`);
+        }
+
+
+
+
+
+        // Missing Products Analysis Functions
+        function analyzeMissingProducts() {
+            console.log('🔍 เริ่มวิเคราะห์สินค้าที่ขาด...');
+            
+            // ตรวจสอบข้อมูลฐานข้อมูล
+            if (sheetsData.length === 0) {
+                showNotification('กรุณาโหลดข้อมูลจากชีทก่อนวิเคราะห์', 'error');
+                return;
+            }
+
+            // ตรวจสอบรอบสินค้า
+            const selectedRound = elements.summaryRoundSelect.value;
+            if (!selectedRound || !allRoundsData[selectedRound]) {
+                showNotification('กรุณาเลือกรอบสินค้าก่อนวิเคราะห์', 'error');
+                return;
+            }
+
+            elements.analyzeMissingBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>กำลังประมวลผล...';
+            elements.analyzeMissingBtn.disabled = true;
+
+            try {
+                console.log('📋 ข้อมูลฐานข้อมูล:', sheetsData.length, 'รายการ');
+                console.log('📦 ข้อมูลรอบสินค้า:', selectedRound);
+
+                // สร้างข้อมูลฐานข้อมูล - แยกตาม code + option (1 กล่องต่อ 1 รสชาติ)
+                const databaseProducts = {};
+                sheetsData.forEach((product, index) => {
+                    // ทำความสะอาดข้อมูลฐานข้อมูล
+                    let cleanCode = (product.code || '').trim();
+                    let cleanOption = (product.option || '').trim();
+                    
+                    // ลบ "└─ " ถ้ามี
+                    if (cleanOption.startsWith('└─ ')) {
+                        cleanOption = cleanOption.substring(3).trim();
+                    }
+                    
+                    // ลบข้อมูลในวงเล็บออก เช่น "พีช (ชมพู)" -> "พีช"
+                    if (cleanOption.includes('(') && cleanOption.includes(')')) {
+                        cleanOption = cleanOption.split(' (')[0].trim();
+                    }
+                    
+                    const key = `${cleanCode}|${cleanOption}`;
+                    if (!databaseProducts[key]) {
+                        databaseProducts[key] = {
+                            code: cleanCode,
+                            name: product.name || '',
+                            option: cleanOption,
+                            totalQuantity: 0
+                        };
+                    }
+                    databaseProducts[key].totalQuantity += product.quantity || 0;
+                    
+                    // Debug ข้อมูลฐานข้อมูล 5 รายการแรก
+                    if (index < 5) {
+                        console.log(`📋 ฐานข้อมูล ${index + 1}: "${product.code}" -> "${cleanCode}" | "${product.option}" -> "${cleanOption}" = ${product.quantity} ชิ้น`);
+                    }
+                });
+
+                console.log(`📊 ฐานข้อมูล: ${Object.keys(databaseProducts).length} รายการ (หลังทำความสะอาด)`);
+
+                // สร้างข้อมูลที่ได้รับจากตารางรายละเอียดสินค้า
+                const receivedProducts = {};
+                const roundData = allRoundsData[selectedRound];
+                const packages = roundData.packages || [];
+
+                console.log(`🔍 ตรวจสอบพัสดุในรอบ ${selectedRound}: ${packages.length} พัสดุ`);
+
+                packages.forEach((pkg, pkgIndex) => {
+                    pkg.products.forEach((product, productIndex) => {
+                        // ทำความสะอาดข้อมูลจากตารางรายละเอียด
+                        let cleanCode = (product.code || '').trim();
+                        let cleanOption = (product.option || '').trim();
+                        
+                        // ลบ "└─ " ถ้ามี
+                        if (cleanOption.startsWith('└─ ')) {
+                            cleanOption = cleanOption.substring(3).trim();
+                        }
+                        
+                        // ลบข้อมูลในวงเล็บออก เช่น "พีช (ชมพู)" -> "พีช"
+                        if (cleanOption.includes('(') && cleanOption.includes(')')) {
+                            cleanOption = cleanOption.split(' (')[0].trim();
+                        }
+                        
+                        const key = `${cleanCode}|${cleanOption}`;
+                        if (!receivedProducts[key]) {
+                            receivedProducts[key] = {
+                                code: cleanCode,
+                                name: product.name || '',
+                                option: cleanOption,
+                                totalReceived: 0,
+                                packages: []
+                            };
+                        }
+                        
+                        const receivedQty = product.received || 0;
+                        receivedProducts[key].totalReceived += receivedQty;
+                        receivedProducts[key].packages.push({
+                            packageNumber: pkg.packageNumber,
+                            received: receivedQty
+                        });
+                    });
+                });
+
+                console.log(`📦 สรุปที่ได้รับ: ${Object.keys(receivedProducts).length} รายการ (หลังทำความสะอาด)`);
+
+                // วิเคราะห์สินค้าที่ขาด - แยกตามรสชาติ (1 กล่องต่อ 1 รสชาติ)
+                missingProductsData = [];
+                let totalMissingItems = 0;
+                let totalAnalyzedItems = 0;
+
+                console.log('🔍 เริ่มเปรียบเทียบข้อมูล...');
+
+                Object.keys(databaseProducts).forEach(key => {
+                    const dbProduct = databaseProducts[key];
+                    const receivedProduct = receivedProducts[key];
+                    const received = receivedProduct ? receivedProduct.totalReceived : 0;
+                    const missing = Math.max(0, dbProduct.totalQuantity - received);
+                    
+                    totalAnalyzedItems++;
+                    
+                    // เก็บข้อมูลทั้งหมด (แยกตามรสชาติ)
+                    missingProductsData.push({
+                        code: dbProduct.code,
+                        name: dbProduct.name,
+                        option: dbProduct.option,
+                        inDatabase: dbProduct.totalQuantity,
+                        received: received,
+                        missing: missing,
+                        packages: receivedProduct ? receivedProduct.packages : []
+                    });
+                    
+                    if (missing > 0) {
+                        totalMissingItems += missing;
+                    }
+                });
+
+                // เรียงลำดับตามจำนวนที่ขาดมากที่สุด
+                missingProductsData.sort((a, b) => b.missing - a.missing);
+
+                console.log(`📊 สรุปการวิเคราะห์:`);
+                console.log(`  - วิเคราะห์ทั้งหมด: ${totalAnalyzedItems} รายการ`);
+                console.log(`  - สินค้าที่ขาด: ${missingProductsData.filter(p => p.missing > 0).length} รายการ`);
+                console.log(`  - จำนวนที่ขาดรวม: ${totalMissingItems} ชิ้น`);
+
+                // แสดงผลลัพธ์
+                displayMissingProductsResults();
+
+            } catch (error) {
+                console.error('❌ เกิดข้อผิดพลาดในการวิเคราะห์:', error);
+                showNotification('เกิดข้อผิดพลาดในการวิเคราะห์: ' + error.message, 'error');
+            } finally {
+                elements.analyzeMissingBtn.innerHTML = '<i class="fas fa-calculator mr-1"></i>ประมวลผลสินค้าที่ขาด';
+                elements.analyzeMissingBtn.disabled = false;
+            }
+        }
+
+        function displayMissingProductsResults() {
+            // ซ่อนคำแนะนำ
+            elements.analysisInstructions.classList.add('hidden');
+
+            if (missingProductsData.length === 0) {
+                // ไม่มีข้อมูลเลย
+                elements.missingProductsAlert.classList.add('hidden');
+                elements.missingProductsTable.classList.add('hidden');
+                elements.noMissingProductsMessage.classList.remove('hidden');
+                elements.copyMissingBtn.classList.add('hidden');
+                return;
+            }
+
+            // จัดกลุ่มข้อมูลตามรหัสสินค้าเพื่อนับจำนวนรหัสสินค้า
+            const productGroups = {};
+            
+            missingProductsData.forEach(product => {
+                if (!productGroups[product.code]) {
+                    productGroups[product.code] = {
+                        code: product.code,
+                        name: product.name,
+                        flavors: [],
+                        totalInDatabase: 0,
+                        totalReceived: 0,
+                        totalMissing: 0
+                    };
+                }
+                
+                productGroups[product.code].flavors.push({
+                    option: product.option,
+                    inDatabase: product.inDatabase,
+                    received: product.received,
+                    missing: product.missing,
+                    packages: product.packages
+                });
+                
+                productGroups[product.code].totalInDatabase += product.inDatabase;
+                productGroups[product.code].totalReceived += product.received;
+                productGroups[product.code].totalMissing += product.missing;
+            });
+
+            // นับสถิติตามรหัสสินค้า
+            let completeProductCodes = 0;    // รหัสสินค้าที่ครบทุกตัวเลือก
+            let partialProductCodes = 0;     // รหัสสินค้าที่ได้บางส่วน
+            let missingProductCodes = 0;     // รหัสสินค้าที่ขาดเป็นหลัก
+            
+            Object.values(productGroups).forEach(group => {
+                if (group.totalMissing === 0 && group.totalReceived > 0) {
+                    // ครบทุกตัวเลือก
+                    completeProductCodes++;
+                } else if (group.totalReceived > 0 && group.totalMissing > 0) {
+                    // ได้บางส่วน (มีทั้งที่ได้และที่ขาด)
+                    partialProductCodes++;
+                } else if (group.totalMissing > 0) {
+                    // ขาดเป็นหลัก (ไม่ได้เลยหรือได้น้อยมาก)
+                    missingProductCodes++;
+                }
+            });
+            
+            const totalProductCodes = Object.keys(productGroups).length;
+            const receivedItems = missingProductsData.reduce((sum, item) => sum + item.received, 0);
+            const totalInDatabase = missingProductsData.reduce((sum, item) => sum + item.inDatabase, 0);
+            
+            // แสดง alert สรุป
+            elements.noMissingProductsMessage.classList.add('hidden');
+            elements.missingProductsAlert.classList.remove('hidden');
+            elements.copyMissingBtn.classList.remove('hidden');
+            
+            elements.missingProductsSummary.innerHTML = `
+                วิเคราะห์ทั้งหมด <strong>${totalProductCodes}</strong> รหัสสินค้า | 
+                ครบ <strong class="text-green-600">${completeProductCodes}</strong> | 
+                ได้บางส่วน <strong class="text-yellow-600">${partialProductCodes}</strong> | 
+                ขาด <strong class="text-red-600">${missingProductCodes}</strong><br>
+                <small class="text-gray-600">ได้แล้ว ${receivedItems.toLocaleString()}/${totalInDatabase.toLocaleString()} ชิ้น (${((receivedItems/totalInDatabase)*100).toFixed(1)}%)</small>
+            `;
+
+            // แสดงตารางรายละเอียดทันที
+            elements.missingProductsTable.classList.remove('hidden');
+            populateMissingProductsTable();
+            
+            if (missingProductCodes > 0) {
+                showNotification(`📊 วิเคราะห์เสร็จ: ขาด ${missingProductCodes} รหัส, ครบ ${completeProductCodes} รหัส, ได้บางส่วน ${partialProductCodes} รหัส`, 'warning');
+            } else {
+                showNotification('🎉 ยินดีด้วย! ไม่มีสินค้าที่ขาด สินค้าทั้งหมดได้รับครบถ้วนแล้ว', 'success');
+            }
+        }
+
+        function showMissingDetails() {
+            if (missingProductsData.length === 0) return;
+
+            // แสดง/ซ่อนตาราง
+            const isHidden = elements.missingProductsTable.classList.contains('hidden');
+            
+            if (isHidden) {
+                // แสดงตาราง
+                elements.missingProductsTable.classList.remove('hidden');
+                elements.showMissingDetailsBtn.innerHTML = '<i class="fas fa-eye-slash mr-1"></i>ซ่อนรายละเอียด';
+                
+                // สร้างตารางรายละเอียด
+                populateMissingProductsTable();
+            } else {
+                // ซ่อนตาราง
+                elements.missingProductsTable.classList.add('hidden');
+                elements.showMissingDetailsBtn.innerHTML = '<i class="fas fa-list mr-1"></i>ดูรายละเอียด';
+            }
+        }
+
+        function populateMissingProductsTable() {
+            const missingProductsCards = document.getElementById('missingProductsCards');
+            missingProductsCards.innerHTML = '';
+
+            // ใช้ตัวกรองเพื่อแสดงข้อมูล
+            filterMissingProducts();
+        }
+
+        // ฟังก์ชันกรองสินค้าตามตัวเลือก
+        function filterMissingProducts() {
+            const missingProductsCards = document.getElementById('missingProductsCards');
+            const missingProductsCount = document.getElementById('missingProductsCount');
+            const filterValue = document.getElementById('missingProductsFilter').value;
+            
+            if (!missingProductsCards || !missingProductsCount) return;
+            
+            missingProductsCards.innerHTML = '';
+
+            if (missingProductsData.length === 0) {
+                missingProductsCards.innerHTML = `
+                    <div class="col-span-full py-8 px-4 text-center text-gray-500">
+                        <i class="fas fa-inbox text-4xl mb-2 block"></i>
+                        <p class="text-lg font-medium">ยังไม่มีข้อมูลการวิเคราะห์</p>
+                        <p class="text-sm">กรุณาคลิก "ประมวลผลสินค้าที่ขาด" ก่อน</p>
+                    </div>
+                `;
+                missingProductsCount.textContent = '0 รายการ';
+                return;
+            }
+
+            // จัดกลุ่มข้อมูลตามรหัสสินค้า (1 กล่องต่อ 1 รหัสสินค้า)
+            const productGroups = {};
+            
+            missingProductsData.forEach(product => {
+                if (!productGroups[product.code]) {
+                    productGroups[product.code] = {
+                        code: product.code,
+                        name: product.name,
+                        flavors: [],
+                        totalInDatabase: 0,
+                        totalReceived: 0,
+                        totalMissing: 0
+                    };
+                }
+                
+                productGroups[product.code].flavors.push({
+                    option: product.option,
+                    inDatabase: product.inDatabase,
+                    received: product.received,
+                    missing: product.missing,
+                    packages: product.packages
+                });
+                
+                productGroups[product.code].totalInDatabase += product.inDatabase;
+                productGroups[product.code].totalReceived += product.received;
+                productGroups[product.code].totalMissing += product.missing;
+            });
+
+            // กรองข้อมูลตามตัวเลือก
+            let filteredGroups = [];
+            
+            Object.values(productGroups).forEach(group => {
+                let shouldInclude = false;
+                
+                switch (filterValue) {
+                    case 'missing':
+                        shouldInclude = group.totalMissing > 0;
+                        break;
+                    case 'complete':
+                        shouldInclude = group.totalMissing === 0 && group.totalReceived > 0;
+                        break;
+                    case 'partial':
+                        shouldInclude = group.totalMissing > 0 && group.totalReceived > 0;
+                        break;
+                    default: // 'all'
+                        shouldInclude = true;
+                        break;
+                }
+                
+                if (shouldInclude) {
+                    filteredGroups.push(group);
+                }
+            });
+
+            // อัปเดตจำนวนรายการ
+            missingProductsCount.textContent = `${filteredGroups.length} รหัสสินค้า`;
+
+            if (filteredGroups.length === 0) {
+                const filterText = {
+                    'missing': 'ไม่มีสินค้าที่ขาด',
+                    'complete': 'ไม่มีสินค้าที่ครบ',
+                    'partial': 'ไม่มีสินค้าที่ได้บางส่วน',
+                    'all': 'ไม่มีข้อมูล'
+                };
+                
+                missingProductsCards.innerHTML = `
+                    <div class="col-span-full py-8 px-4 text-center text-gray-500">
+                        <i class="fas fa-filter text-4xl mb-2 block"></i>
+                        <p class="text-lg font-medium">${filterText[filterValue]}</p>
+                        <p class="text-sm">ลองเปลี่ยนตัวกรองเพื่อดูข้อมูลอื่น</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // เรียงลำดับตามรหัสสินค้า
+            filteredGroups.sort((a, b) => a.code.localeCompare(b.code));
+
+            // สร้างกล่องสำหรับแต่ละรหัสสินค้า (1 กล่องต่อ 1 รหัสสินค้า)
+            filteredGroups.forEach((group) => {
+                // กำหนดสีตามสถานะรวม
+                let cardClass, statusClass, statusText;
+                
+                if (group.totalMissing === 0 && group.totalReceived > 0) {
+                    // ครบทุกรสชาติ = สีเขียว
+                    cardClass = 'bg-green-50 border-green-200';
+                    statusClass = 'bg-green-500 text-white';
+                    statusText = 'ครบทุกรส';
+                } else if (group.totalReceived > 0 && group.totalMissing > 0) {
+                    // ได้บางรสชาติ = สีเหลือง
+                    cardClass = 'bg-yellow-50 border-yellow-200';
+                    statusClass = 'bg-yellow-500 text-white';
+                    statusText = 'ได้บางรส';
+                } else {
+                    // ขาดทุกรสชาติ = สีแดง
+                    cardClass = 'bg-red-50 border-red-200';
+                    statusClass = 'bg-red-500 text-white';
+                    statusText = 'ขาดทุกรส';
+                }
+                
+                const card = document.createElement('div');
+                card.className = `border rounded-xl p-4 transition-all duration-200 hover:shadow-md ${cardClass}`;
+                
+                // สร้างรายการรสชาติแบบ text เล็กๆ ในกล่อง
+                const flavorsList = group.flavors.map(flavor => {
+                    let statusText, statusClass;
+                    
+                    if (flavor.missing === 0 && flavor.received > 0) {
+                        statusText = 'ครบ';
+                        statusClass = 'bg-green-100 text-green-700 border-green-300';
+                    } else if (flavor.received > 0 && flavor.missing > 0) {
+                        statusText = `ขาด ${flavor.missing}`;
+                        statusClass = 'bg-yellow-100 text-yellow-700 border-yellow-300';
+                    } else {
+                        statusText = `ขาด ${flavor.missing}`;
+                        statusClass = 'bg-red-100 text-red-700 border-red-300';
+                    }
+                    
+                    // ถ้าได้เกินจำนวนที่สั่ง
+                    if (flavor.received > flavor.inDatabase) {
+                        const excess = flavor.received - flavor.inDatabase;
+                        statusText = `เกิน ${excess}`;
+                        statusClass = 'bg-blue-100 text-blue-700 border-blue-300';
+                    }
+                    
+                    return `
+                        <span class="inline-block border rounded-md px-2 py-1 text-xs font-medium ${statusClass} mr-1 mb-1">
+                            ${flavor.option || 'ไม่ระบุ'} ${statusText}
+                        </span>
+                    `;
+                }).join('');
+                
+                card.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-4 flex-1">
+                                <div class="flex-shrink-0">
+                                    <h5 class="font-bold text-gray-900 text-lg">${group.code}</h5>
+                                    <p class="text-sm text-gray-700 font-medium">${group.name}</p>
+                                </div>
+                            </div>
+                            <div class="flex-shrink-0 ml-4">
+                                <span class="px-3 py-1 rounded-full text-xs font-bold ${statusClass}">
+                                    ${statusText}
+                                </span>
+                                <p class="text-xs text-gray-600 mt-1 text-center">
+                                    <i class="fas fa-palette mr-1"></i>${group.flavors.length} รสชาติ
+                                </p>
+                            </div>
+                        </div>
+                        <div class="border-t pt-3">
+                            <div class="flex flex-wrap">
+                                ${flavorsList}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                missingProductsCards.appendChild(card);
+            });
+        }
+
+        function copyMissingProducts() {
+            if (missingProductsData.length === 0) {
+                showNotification('ไม่มีข้อมูลสินค้าที่ขาดสำหรับคัดลอก', 'error');
+                return;
+            }
+
+            // สร้างข้อมูลในรูปแบบตาราง
+            let tableData = [];
+            
+            // Header
+            tableData.push([
+                'รหัสสินค้า',
+                'ชื่อสินค้า', 
+                'ตัวเลือก',
+                'ในฐานข้อมูล',
+                'ได้แล้ว',
+                'ยังขาด'
+            ]);
+
+            // Data rows
+            missingProductsData.forEach((product) => {
+                tableData.push([
+                    product.code,
+                    product.name,
+                    product.option || '-',
+                    product.inDatabase.toString(),
+                    product.received.toString(),
+                    product.missing.toString()
+                ]);
+            });
+
+            // แปลงเป็น TSV (Tab-separated values) สำหรับ Google Sheets
+            const tsvContent = tableData.map(row => row.join('\t')).join('\n');
+            
+            // เพิ่มข้อมูลสรุปด้านล่าง
+            const selectedRound = elements.summaryRoundSelect.value;
+            const totalMissingItems = missingProductsData.reduce((sum, item) => sum + item.missing, 0);
+            const totalInDatabase = missingProductsData.reduce((sum, item) => sum + item.inDatabase, 0);
+            const totalReceived = missingProductsData.reduce((sum, item) => sum + item.received, 0);
+
+            const summaryData = [
+                '',
+                `รายงานสินค้าที่ขาด - รอบ: ${selectedRound}`,
+                `วิเคราะห์เมื่อ: ${new Date().toLocaleString('th-TH')}`,
+                '',
+                'สรุป:',
+                `รายการที่ขาด: ${missingProductsData.length} รายการ`,
+                `จำนวนในฐานข้อมูล: ${totalInDatabase.toLocaleString()} ชิ้น`,
+                `จำนวนที่ได้แล้ว: ${totalReceived.toLocaleString()} ชิ้น`,
+                `จำนวนที่ยังขาด: ${totalMissingItems.toLocaleString()} ชิ้น`,
+                `เปอร์เซ็นต์ที่ได้: ${((totalReceived / totalInDatabase) * 100).toFixed(1)}%`
+            ];
+
+            const finalContent = tsvContent + '\n\n' + summaryData.join('\n');
+
+            // Copy to clipboard
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(finalContent).then(() => {
+                    showNotification('คัดลอกรายการสินค้าที่ขาดเรียบร้อย! วางใน Google Sheets ได้เลย', 'success');
+                }).catch(() => {
+                    fallbackCopyTextToClipboard(finalContent);
+                });
+            } else {
+                fallbackCopyTextToClipboard(finalContent);
+            }
+        }
+
+        // Global functions for onclick handlers
+        window.selectRound = selectRound;
+        window.deleteRound = deleteRound;
+        window.editProduct = function(roundName, code, option, packageNumbers) {
+            console.log('🔧 แก้ไขสินค้า:', { roundName, code, option, packageNumbers });
+            
+            if (!roundName || !allRoundsData[roundName]) {
+                showNotification('ไม่พบข้อมูลรอบสินค้า', 'error');
+                return;
+            }
+            
+            // หาพัสดุที่มีสินค้านี้
+            const roundData = allRoundsData[roundName];
+            const packagesWithProduct = [];
+            
+            roundData.packages.forEach(pkg => {
+                pkg.products.forEach((product, productIndex) => {
+                    if (product.code === code && product.option === option) {
+                        packagesWithProduct.push({
+                            packageNumber: pkg.packageNumber,
+                            productIndex: productIndex,
+                            product: product,
+                            packageIndex: roundData.packages.indexOf(pkg)
+                        });
+                    }
+                });
+            });
+            
+            if (packagesWithProduct.length === 0) {
+                showNotification('ไม่พบสินค้านี้ในระบบ', 'error');
+                return;
+            }
+            
+            console.log('📦 พบสินค้าใน', packagesWithProduct.length, 'พัสดุ');
+            
+            // สร้างฟอร์มแก้ไขแบบ inline
+            const editForm = document.createElement('div');
+            editForm.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+            editForm.innerHTML = `
+                <div class="bg-white rounded-2xl p-6 max-w-2xl w-full max-h-96 overflow-y-auto">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-bold text-gray-900">แก้ไขสินค้า: ${code}</h2>
+                        <button id="closeEditForm" class="text-gray-500 hover:text-gray-700 transition-colors">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <p class="text-sm text-gray-600 mb-2">ตัวเลือก: <strong>${option}</strong></p>
+                        <p class="text-sm text-gray-600">พบในพัสดุ: <strong>${packagesWithProduct.map(p => p.packageNumber).join(', ')}</strong></p>
+                    </div>
+                    
+                    <div class="space-y-4" id="editProductList">
+                        ${packagesWithProduct.map((item, index) => `
+                            <div class="border border-gray-200 rounded-lg p-4" id="editItem_${index}">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="font-medium text-gray-900">พัสดุ: ${item.packageNumber}</h4>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="text-sm text-gray-500">สั่ง: ${item.product.ordered || 0} ชิ้น</span>
+                                        <button type="button" class="delete-edit-item text-red-500 hover:text-red-700 transition-colors" data-index="${index}" title="ลบรายการนี้">
+                                            <i class="fas fa-trash text-sm"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">จำนวนที่ได้</label>
+                                        <input type="number" id="received_${index}" value="${item.product.received || 0}" min="0" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">ค่านำเข้า (บาท)</label>
+                                        <input type="number" id="shipping_${index}" value="${item.product.shippingCost || 0}" min="0" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div class="flex justify-end space-x-4 mt-6">
+                        <button id="cancelEdit" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors">
+                            ยกเลิก
+                        </button>
+                        <button id="saveEdit" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-save mr-1"></i>บันทึก
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(editForm);
+            
+            // Event listeners สำหรับฟอร์มแก้ไข
+            document.getElementById('closeEditForm').addEventListener('click', () => {
+                document.body.removeChild(editForm);
+            });
+            
+            document.getElementById('cancelEdit').addEventListener('click', () => {
+                document.body.removeChild(editForm);
+            });
+            
+            // Event listener สำหรับปุ่มลบ (ไม่ใช้ popup)
+            editForm.addEventListener('click', (e) => {
+                if (e.target.closest('.delete-edit-item')) {
+                    const button = e.target.closest('.delete-edit-item');
+                    const index = parseInt(button.getAttribute('data-index'));
+                    const item = packagesWithProduct[index];
+                    
+                    // ลบทันทีโดยไม่ต้อง confirm
+                    console.log(`🗑️ ลบสินค้า ${code} - ${option} จากพัสดุ ${item.packageNumber}`);
+                    
+                    // ลบสินค้าจากพัสดุ
+                    allRoundsData[roundName].packages[item.packageIndex].products.splice(item.productIndex, 1);
+                    
+                    // ซ่อนรายการในฟอร์ม
+                    const editItem = document.getElementById(`editItem_${index}`);
+                    if (editItem) {
+                        editItem.style.display = 'none';
+                        editItem.setAttribute('data-deleted', 'true');
+                    }
+                    
+                    showNotification(`ลบสินค้าจากพัสดุ "${item.packageNumber}" เรียบร้อยแล้ว`, 'success');
+                    
+                    // ตรวจสอบว่ายังมีรายการเหลืออยู่หรือไม่
+                    const remainingItems = packagesWithProduct.filter((_, i) => {
+                        const element = document.getElementById(`editItem_${i}`);
+                        return !element || element.getAttribute('data-deleted') !== 'true';
+                    });
+                    
+                    if (remainingItems.length === 0) {
+                        showNotification('ลบสินค้าทั้งหมดแล้ว กำลังปิดฟอร์ม...', 'info');
+                        setTimeout(() => {
+                            saveData();
+                            updateSummaryTable();
+                            document.body.removeChild(editForm);
+                        }, 1500);
+                    }
+                }
+            });
+
+            document.getElementById('saveEdit').addEventListener('click', () => {
+                // บันทึกการแก้ไข
+                let hasChanges = false;
+                let deletedCount = 0;
+                
+                packagesWithProduct.forEach((item, index) => {
+                    const editItem = document.getElementById(`editItem_${index}`);
+                    
+                    // ข้ามรายการที่ถูกลบ
+                    if (editItem && editItem.getAttribute('data-deleted') === 'true') {
+                        deletedCount++;
+                        hasChanges = true;
+                        return;
+                    }
+                    
+                    const receivedInput = document.getElementById(`received_${index}`);
+                    const shippingInput = document.getElementById(`shipping_${index}`);
+                    
+                    if (!receivedInput || !shippingInput) return;
+                    
+                    const newReceived = parseInt(receivedInput.value) || 0;
+                    const newShippingCost = parseInt(shippingInput.value) || 0;
+                    
+                    const oldReceived = item.product.received || 0;
+                    const oldShippingCost = item.product.shippingCost || 0;
+                    
+                    if (newReceived !== oldReceived || newShippingCost !== oldShippingCost) {
+                        hasChanges = true;
+                        
+                        // หาตำแหน่งใหม่ของสินค้าในพัสดุ (เพราะอาจมีการลบรายการอื่น)
+                        const pkg = allRoundsData[roundName].packages[item.packageIndex];
+                        const productIndex = pkg.products.findIndex(p => 
+                            p.code === item.product.code && 
+                            p.option === item.product.option &&
+                            p.received === item.product.received &&
+                            p.shippingCost === item.product.shippingCost
+                        );
+                        
+                        if (productIndex !== -1) {
+                            // อัปเดตข้อมูล
+                            pkg.products[productIndex].received = newReceived;
+                            pkg.products[productIndex].shippingCost = newShippingCost;
+                            
+                            // คำนวณใหม่
+                            const ordered = item.product.ordered || 0;
+                            const missing = Math.max(0, ordered - newReceived);
+                            const excess = Math.max(0, newReceived - ordered);
+                            
+                            pkg.products[productIndex].missing = missing;
+                            pkg.products[productIndex].excess = excess;
+                            
+                            console.log(`✅ อัปเดตพัสดุ ${item.packageNumber}: ได้ ${oldReceived} -> ${newReceived}, ค่านำเข้า ${oldShippingCost} -> ${newShippingCost}`);
+                        }
+                    }
+                });
+                
+                if (hasChanges) {
+                    // บันทึกข้อมูล
+                    saveData();
+                    
+                    // อัปเดต UI
+                    updateSummaryTable();
+                    
+                    let message = `✅ แก้ไขสินค้า "${code} - ${option}" เรียบร้อยแล้ว`;
+                    if (deletedCount > 0) {
+                        message += `\n🗑️ ลบ ${deletedCount} รายการ`;
+                    }
+                    
+                    showNotification(message, 'success');
+                } else {
+                    showNotification('ไม่มีการเปลี่ยนแปลงข้อมูล', 'info');
+                }
+                
+                document.body.removeChild(editForm);
+            });
+            
+            // ปิดเมื่อคลิกนอกฟอร์ม
+            editForm.addEventListener('click', (e) => {
+                if (e.target === editForm) {
+                    document.body.removeChild(editForm);
+                }
+            });
+        };
+
+        // Initialize app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9765de2902ab7329',t:'MTc1NjQwNTcwMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
