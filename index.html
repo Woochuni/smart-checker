@@ -91,6 +91,10 @@
                     <button id="roundsBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
                         <i class="fas fa-layer-group mr-1"></i>จัดการรอบ
                     </button>
+                    <button id="importDataBtn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-upload mr-1"></i>Import ข้อมูล
+                    </button>
+
                     <button id="summaryBtn" class="text-gray-600 hover:text-blue-500 transition-colors" title="รายงานสรุป">
                         <i class="fas fa-chart-bar text-lg"></i>
                     </button>
@@ -426,6 +430,74 @@
                             <!-- Summary data will be populated here -->
                         </tbody>
                     </table>
+                    <!-- Import Data Modal -->
+                    <div id="importModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+                        <div class="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold">Import ข้อมูลคัดลอกสรุป</h3>
+                                <button id="closeImportModal" class="text-gray-500 hover:text-gray-700">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">วางข้อมูลที่คัดลอก</label>
+                                    <textarea id="importDataText" rows="6" 
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        placeholder="วางข้อมูลที่คัดลอกมาจากปุ่ม 'คัดลอกสรุป' ที่นี่..."></textarea>
+                                </div>
+                                
+                                <div class="flex space-x-2">
+                                    <button id="processImportBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
+                                        <i class="fas fa-cog mr-1"></i>ประมวลผลข้อมูล
+                                    </button>
+
+                                    // เพิ่มใน elements object
+                                    importDataBtn: document.getElementById('importDataBtn'),
+                                    importModal: document.getElementById('importModal'),
+                                    closeImportModal: document.getElementById('closeImportModal'),
+                                    importDataText: document.getElementById('importDataText'),
+                                    processImportBtn: document.getElementById('processImportBtn'),
+                                    clearImportBtn: document.getElementById('clearImportBtn'),
+                                    importPreview: document.getElementById('importPreview'),
+                                    importPreviewBody: document.getElementById('importPreviewBody'),
+                                    confirmImportBtn: document.getElementById('confirmImportBtn'),
+
+                                    <button id="clearImportBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">
+                                        ล้างข้อมูล
+                                    </button>
+                                </div>
+                                
+                                <!-- Preview Table -->
+                                <div id="importPreview" class="hidden">
+                                    <h4 class="font-medium mb-2">ตัวอย่างข้อมูลที่จะนำเข้า</h4>
+                                    <div class="overflow-x-auto max-h-40">
+                                        <table class="w-full text-sm border">
+                                            <thead class="bg-gray-50">
+                                                <tr>
+                                                    <th class="border p-2 text-left">รหัส</th>
+                                                    <th class="border p-2 text-left">ชื่อสินค้า</th>
+                                                    <th class="border p-2 text-left">ตัวเลือก</th>
+                                                    <th class="border p-2 text-center">สั่ง</th>
+                                                    <th class="border p-2 text-center">ได้</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="importPreviewBody">
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    
+                                    <div class="mt-4 flex space-x-2">
+                                        <button id="confirmImportBtn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
+                                            <i class="fas fa-check mr-1"></i>นำเข้าข้อมูล
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -595,6 +667,18 @@
 
             // Package form
             elements.addProductBtn.addEventListener('click', addProductItem);
+
+            // Import Data Events
+            elements.importDataBtn.addEventListener('click', showImportModal);
+            elements.closeImportModal.addEventListener('click', hideImportModal);
+            elements.processImportBtn.addEventListener('click', processImportData);
+            elements.clearImportBtn.addEventListener('click', clearImportData);
+            elements.confirmImportBtn.addEventListener('click', confirmImportData);
+
+            // Close modal when clicking outside
+            elements.importModal.addEventListener('click', (e) => {
+                if (e.target === elements.importModal) hideImportModal();
+            });
 
             // ปุ่มทดสอบ
             const testSaveBtn = document.getElementById('testSaveBtn');
@@ -3446,6 +3530,168 @@
 
         // Initialize app when DOM is loaded
         document.addEventListener('DOMContentLoaded', initApp);
+
+        // Global variable for import data
+let importedProductsData = [];
+
+// Show Import Modal
+function showImportModal() {
+    elements.importModal.classList.remove('hidden');
+    elements.importModal.classList.add('flex');
+    elements.importDataText.focus();
+}
+
+// Hide Import Modal
+function hideImportModal() {
+    elements.importModal.classList.add('hidden');
+    elements.importModal.classList.remove('flex');
+    clearImportData();
+}
+
+// Clear Import Data
+function clearImportData() {
+    elements.importDataText.value = '';
+    elements.importPreview.classList.add('hidden');
+    importedProductsData = [];
+}
+
+// Process Import Data
+function processImportData() {
+    const rawData = elements.importDataText.value.trim();
+    
+    if (!rawData) {
+        showNotification('กรุณาวางข้อมูลที่ต้องการนำเข้า', 'error');
+        return;
+    }
+    
+    try {
+        let parsedData = [];
+        
+        if (rawData.startsWith('{') || rawData.startsWith('[')) {
+            // JSON format
+            parsedData = JSON.parse(rawData);
+        } else {
+            // Tab-separated format from copySummaryData
+            const lines = rawData.split('\n').filter(line => line.trim());
+            
+            // Skip header line
+            for (let i = 1; i < lines.length; i++) {
+                const parts = lines[i].split('\t');
+                if (parts.length >= 6) {
+                    parsedData.push({
+                        code: parts[0] || '',
+                        name: parts[1] || '',
+                        option: parts[2] || '',
+                        ordered: parseInt(parts[4]) || 0,
+                        received: parseInt(parts[5]) || 0
+                    });
+                }
+            }
+        }
+        
+        if (parsedData.length === 0) {
+            showNotification('ไม่พบข้อมูลที่ถูกต้อง', 'error');
+            return;
+        }
+        
+        importedProductsData = parsedData;
+        displayImportPreview();
+        
+        showNotification(`ประมวลผลข้อมูล ${parsedData.length} รายการเรียบร้อย`, 'success');
+        
+    } catch (error) {
+        console.error('Error processing import data:', error);
+        showNotification('เกิดข้อผิดพลาดในการประมวลผลข้อมูล', 'error');
+    }
+}
+
+// Display Import Preview
+function displayImportPreview() {
+    const tbody = elements.importPreviewBody;
+    tbody.innerHTML = '';
+    
+    // Show first 5 items as preview
+    const previewItems = importedProductsData.slice(0, 5);
+    
+    previewItems.forEach(item => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="border p-2">${item.code}</td>
+            <td class="border p-2">${item.name}</td>
+            <td class="border p-2">${item.option}</td>
+            <td class="border p-2 text-center">${item.ordered}</td>
+            <td class="border p-2 text-center">${item.received}</td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    if (importedProductsData.length > 5) {
+        const moreRow = document.createElement('tr');
+        moreRow.innerHTML = `
+            <td colspan="5" class="border p-2 text-center text-gray-500">
+                ... และอีก ${importedProductsData.length - 5} รายการ
+            </td>
+        `;
+        tbody.appendChild(moreRow);
+    }
+    
+    elements.importPreview.classList.remove('hidden');
+}
+
+// Confirm Import Data
+function confirmImportData() {
+    if (importedProductsData.length === 0) {
+        showNotification('ไม่มีข้อมูลสำหรับนำเข้า', 'error');
+        return;
+    }
+    
+    // Create new round
+    const roundName = `Import ${new Date().toLocaleString('th-TH')}`;
+    
+    if (!allRoundsData[roundName]) {
+        allRoundsData[roundName] = {
+            name: roundName,
+            created: new Date().toISOString(),
+            packages: []
+        };
+    }
+    
+    // Create package with imported data
+    const packageData = {
+        id: Date.now(),
+        packageNumber: `IMP-${Date.now()}`,
+        products: importedProductsData.map(item => ({
+            code: item.code,
+            name: item.name,
+            option: item.option || '-',
+            received: item.received || 0,
+            ordered: item.ordered || 0,
+            missing: Math.max(0, (item.ordered || 0) - (item.received || 0)),
+            excess: Math.max(0, (item.received || 0) - (item.ordered || 0)),
+            shippingCost: 0
+        })),
+        shippingCost: 0,
+        timestamp: new Date().toISOString(),
+        dateCreated: new Date().toLocaleDateString('th-TH', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        })
+    };
+    
+    allRoundsData[roundName].packages.push(packageData);
+    currentRound = roundName;
+    
+    saveData();
+    updateUI();
+    hideImportModal();
+    showSummarySection();
+    
+    showNotification(`นำเข้าข้อมูล ${importedProductsData.length} รายการเรียบร้อย`, 'success');
+}
+
     </script>
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9765de2902ab7329',t:'MTc1NjQwNTcwMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
