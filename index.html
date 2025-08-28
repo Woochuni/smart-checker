@@ -453,16 +453,6 @@
                                         <i class="fas fa-cog mr-1"></i>ประมวลผลข้อมูล
                                     </button>
 
-                                    // เพิ่มใน elements object
-                                    importDataBtn: document.getElementById('importDataBtn'),
-                                    importModal: document.getElementById('importModal'),
-                                    closeImportModal: document.getElementById('closeImportModal'),
-                                    importDataText: document.getElementById('importDataText'),
-                                    processImportBtn: document.getElementById('processImportBtn'),
-                                    clearImportBtn: document.getElementById('clearImportBtn'),
-                                    importPreview: document.getElementById('importPreview'),
-                                    importPreviewBody: document.getElementById('importPreviewBody'),
-                                    confirmImportBtn: document.getElementById('confirmImportBtn'),
 
                                     <button id="clearImportBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">
                                         ล้างข้อมูล
@@ -503,7 +493,11 @@
         </div>
     </div>
 
+
+
     <script>
+
+
         // Configuration
         const CONFIG = {
             SHEETS_URL: 'https://docs.google.com/spreadsheets/d/1kD1uXM3kRJzgQ2SP7gFRsLGWfjrKTdfG_t-4DNuCBok/edit?gid=502811608#gid=502811608',
@@ -522,6 +516,8 @@
         let currentSheetName = null;
         let summarySheetData = []; // เพิ่มตัวแปรสำหรับเก็บข้อมูลชีทสรุป
         let missingProductsData = []; // เพิ่มตัวแปรสำหรับเก็บข้อมูลสินค้าที่ขาด
+        let importedProductsData = []; // เพิ่มตัวแปรสำหรับเก็บข้อมูล import
+
 
         // DOM Elements
         const elements = {
@@ -590,7 +586,17 @@
             missingProductsTable: document.getElementById('missingProductsTable'),
             missingProductsTableBody: document.getElementById('missingProductsTableBody'),
             noMissingProductsMessage: document.getElementById('noMissingProductsMessage'),
-            analysisInstructions: document.getElementById('analysisInstructions')
+            analysisInstructions: document.getElementById('analysisInstructions'),
+            // เพิ่มใน elements object
+            importDataBtn: document.getElementById('importDataBtn'),
+            importModal: document.getElementById('importModal'),
+            closeImportModal: document.getElementById('closeImportModal'),
+            importDataText: document.getElementById('importDataText'),
+            processImportBtn: document.getElementById('processImportBtn'),
+            clearImportBtn: document.getElementById('clearImportBtn'),
+            importPreview: document.getElementById('importPreview'),
+            importPreviewBody: document.getElementById('importPreviewBody'),
+            confirmImportBtn: document.getElementById('confirmImportBtn'),
         };
 
         // Initialize App
@@ -3691,7 +3697,301 @@ function confirmImportData() {
     
     showNotification(`นำเข้าข้อมูล ${importedProductsData.length} รายการเรียบร้อย`, 'success');
 }
+// Import Functions
+function showImportModal() {
+    elements.importModal.classList.remove('hidden');
+    elements.importModal.classList.add('flex');
+    elements.importDataText.focus();
+}
+
+function hideImportModal() {
+    elements.importModal.classList.add('hidden');
+    elements.importModal.classList.remove('flex');
+    clearImportData();
+}
+
+function clearImportData() {
+    elements.importDataText.value = '';
+    elements.importPreview.classList.add('hidden');
+    importedProductsData = [];
+}
+
+function processImportData() {
+    const rawData = elements.importDataText.value.trim();
+    
+    if (!rawData) {
+        showNotification('กรุณาวางข้อมูลที่ต้องการนำเข้า', 'error');
+        return;
+    }
+    
+    try {
+        let parsedData = [];
+        
+        if (rawData.startsWith('{') || rawData.startsWith('[')) {
+            parsedData = JSON.parse(rawData);
+        } else {
+            const lines = rawData.split('\n').filter(line => line.trim());
+            
+            for (let i = 1; i < lines.length; i++) {
+                const parts = lines[i].split('\t');
+                if (parts.length >= 6) {
+                    parsedData.push({
+                        code: parts[0] || '',
+                        name: parts[1] || '',
+                        option: parts[2] || '',
+                        ordered: parseInt(parts[4]) || 0,
+                        received: parseInt(parts[5]) || 0
+                    });
+                }
+            }
+        }
+        
+        if (parsedData.length === 0) {
+            showNotification('ไม่พบข้อมูลที่ถูกต้อง', 'error');
+            return;
+        }
+        
+        importedProductsData = parsedData;
+        displayImportPreview();
+        
+        showNotification(`ประมวลผลข้อมูล ${parsedData.length} รายการเรียบร้อย`, 'success');
+        
+    } catch (error) {
+        console.error('Error processing import data:', error);
+        showNotification('เกิดข้อผิดพลาดในการประมวลผลข้อมูล', 'error');
+    }
+}
+
+function displayImportPreview() {
+    const tbody = elements.importPreviewBody;
+    tbody.innerHTML = '';
+    
+    const previewItems = importedProductsData.slice(0, 5);
+    
+    previewItems.forEach(item => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="border p-2">${item.code}</td>
+            <td class="border p-2">${item.name}</td>
+            <td class="border p-2">${item.option}</td>
+            <td class="border p-2 text-center">${item.ordered}</td>
+            <td class="border p-2 text-center">${item.received}</td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    if (importedProductsData.length > 5) {
+        const moreRow = document.createElement('tr');
+        moreRow.innerHTML = `
+            <td colspan="5" class="border p-2 text-center text-gray-500">
+                ... และอีก ${importedProductsData.length - 5} รายการ
+            </td>
+        `;
+        tbody.appendChild(moreRow);
+    }
+    
+    elements.importPreview.classList.remove('hidden');
+}
+
+function confirmImportData() {
+    if (importedProductsData.length === 0) {
+        showNotification('ไม่มีข้อมูลสำหรับนำเข้า', 'error');
+        return;
+    }
+    
+    const roundName = `Import ${new Date().toLocaleString('th-TH')}`;
+    
+    if (!allRoundsData[roundName]) {
+        allRoundsData[roundName] = {
+            name: roundName,
+            created: new Date().toISOString(),
+            packages: []
+        };
+    }
+    
+    const packageData = {
+        id: Date.now(),
+        packageNumber: `IMP-${Date.now()}`,
+        products: importedProductsData.map(item => ({
+            code: item.code,
+            name: item.name,
+            option: item.option || '-',
+            received: item.received || 0,
+            ordered: item.ordered || 0,
+            missing: Math.max(0, (item.ordered || 0) - (item.received || 0)),
+            excess: Math.max(0, (item.received || 0) - (item.ordered || 0)),
+            shippingCost: 0
+        })),
+        shippingCost: 0,
+        timestamp: new Date().toISOString(),
+        dateCreated: new Date().toLocaleDateString('th-TH', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        })
+    };
+    
+    allRoundsData[roundName].packages.push(packageData);
+    currentRound = roundName;
+    
+    saveData();
+    updateUI();
+    hideImportModal();
+    showSummarySection();
+    
+    showNotification(`นำเข้าข้อมูล ${importedProductsData.length} รายการเรียบร้อย`, 'success');
+}
+
+// Import Functions
+function showImportModal() {
+    elements.importModal.classList.remove('hidden');
+    elements.importModal.classList.add('flex');
+    elements.importDataText.focus();
+}
+
+function hideImportModal() {
+    elements.importModal.classList.add('hidden');
+    elements.importModal.classList.remove('flex');
+    clearImportData();
+}
+
+function clearImportData() {
+    elements.importDataText.value = '';
+    elements.importPreview.classList.add('hidden');
+    importedProductsData = [];
+}
+
+function processImportData() {
+    const rawData = elements.importDataText.value.trim();
+    
+    if (!rawData) {
+        showNotification('กรุณาวางข้อมูลที่ต้องการนำเข้า', 'error');
+        return;
+    }
+    
+    try {
+        let parsedData = [];
+        
+        if (rawData.startsWith('{') || rawData.startsWith('[')) {
+            parsedData = JSON.parse(rawData);
+        } else {
+            const lines = rawData.split('\n').filter(line => line.trim());
+            
+            for (let i = 1; i < lines.length; i++) {
+                const parts = lines[i].split('\t');
+                if (parts.length >= 6) {
+                    parsedData.push({
+                        code: parts[0] || '',
+                        name: parts[1] || '',
+                        option: parts[2] || '',
+                        ordered: parseInt(parts[4]) || 0,
+                        received: parseInt(parts[5]) || 0
+                    });
+                }
+            }
+        }
+        
+        if (parsedData.length === 0) {
+            showNotification('ไม่พบข้อมูลที่ถูกต้อง', 'error');
+            return;
+        }
+        
+        importedProductsData = parsedData;
+        displayImportPreview();
+        
+        showNotification(`ประมวลผลข้อมูล ${parsedData.length} รายการเรียบร้อย`, 'success');
+        
+    } catch (error) {
+        console.error('Error processing import data:', error);
+        showNotification('เกิดข้อผิดพลาดในการประมวลผลข้อมูล', 'error');
+    }
+}
+
+function displayImportPreview() {
+    const tbody = elements.importPreviewBody;
+    tbody.innerHTML = '';
+    
+    const previewItems = importedProductsData.slice(0, 5);
+    
+    previewItems.forEach(item => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="border p-2">${item.code}</td>
+            <td class="border p-2">${item.name}</td>
+            <td class="border p-2">${item.option}</td>
+            <td class="border p-2 text-center">${item.ordered}</td>
+            <td class="border p-2 text-center">${item.received}</td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    if (importedProductsData.length > 5) {
+        const moreRow = document.createElement('tr');
+        moreRow.innerHTML = `
+            <td colspan="5" class="border p-2 text-center text-gray-500">
+                ... และอีก ${importedProductsData.length - 5} รายการ
+            </td>
+        `;
+        tbody.appendChild(moreRow);
+    }
+    
+    elements.importPreview.classList.remove('hidden');
+}
+
+function confirmImportData() {
+    if (importedProductsData.length === 0) {
+        showNotification('ไม่มีข้อมูลสำหรับนำเข้า', 'error');
+        return;
+    }
+    
+    const roundName = `Import ${new Date().toLocaleString('th-TH')}`;
+    
+    if (!allRoundsData[roundName]) {
+        allRoundsData[roundName] = {
+            name: roundName,
+            created: new Date().toISOString(),
+            packages: []
+        };
+    }
+    
+    const packageData = {
+        id: Date.now(),
+        packageNumber: `IMP-${Date.now()}`,
+        products: importedProductsData.map(item => ({
+            code: item.code,
+            name: item.name,
+            option: item.option || '-',
+            received: item.received || 0,
+            ordered: item.ordered || 0,
+            missing: Math.max(0, (item.ordered || 0) - (item.received || 0)),
+            excess: Math.max(0, (item.received || 0) - (item.ordered || 0)),
+            shippingCost: 0
+        })),
+        shippingCost: 0,
+        timestamp: new Date().toISOString(),
+        dateCreated: new Date().toLocaleDateString('th-TH', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        })
+    };
+    
+    allRoundsData[roundName].packages.push(packageData);
+    currentRound = roundName;
+    
+    saveData();
+    updateUI();
+    hideImportModal();
+    showSummarySection();
+    
+    showNotification(`นำเข้าข้อมูล ${importedProductsData.length} รายการเรียบร้อย`, 'success');
+}
+
 
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9765de2902ab7329',t:'MTc1NjQwNTcwMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+></body>
 </html>
